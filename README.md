@@ -9,6 +9,9 @@ Compare each image to prior, and save a copy if significant differences exist:
 
 ### Implementation Details:
 - Implementation in Python 3.9 because of YOLO
+  - wget https://www.python.org/ftp/python/3.9.6/Python-3.9.6.tgz
+  - tar -zxf Python-3.9.6.tgz
+  - cd Python-3.9.6; ./configure; make;
 - Considering using OpenCV (Open Computer Vision)
 - Considering using YOLO (you only look once) recognition/categorization libraries
   - Current - https://github.com/ultralytics/yolov5
