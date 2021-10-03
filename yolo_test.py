@@ -7,17 +7,22 @@ from PIL import Image
 
 import io
 import os
+import glob
 import tempfile
 
+# Model
+model = torch.hub.load('ultralytics/yolov5', 'yolov5s')  # or yolov5m, yolov5l, yolov5x, custom
+
+# Clear output pictures
+def clear_output_dir():
+    for hgx in glob.glob("runs/detect/exp*/image*jpg"):
+        os.remove(hgx)
+    for hgx in glob.glob("runs/detect/exp*"):
+        os.rmdir(hgx)
+    os.rmdir('runs/detect')
+    os.rmdir('runs')
+
 def yolo_magic():
-    # Model
-    model = torch.hub.load('ultralytics/yolov5', 'yolov5s')  # or yolov5m, yolov5l, yolov5x, custom
-
-    # Images
-    # img = 'https://ultralytics.com/images/zidane.jpg'  # or file, Path, PIL, OpenCV, numpy, list
-
-    # Inference
-    # results = model(img)
     results = model(download_image())
     print(f"model results loaded")
     # Results
@@ -45,5 +50,7 @@ def download_image():
     buffer.close()
     return i
 
-yolo_magic()
+clear_output_dir()
+for i in range(10):
+    yolo_magic()
 # download_image()
