@@ -9,9 +9,10 @@ Compare each image to prior, and save a copy if significant differences exist:
 
 ### Implementation Details:
 - Implementation in Python 3.9 because of YOLO
+  - sudo yum install -y openssl-devel libffi-devel
   - wget https://www.python.org/ftp/python/3.9.6/Python-3.9.6.tgz
   - tar -zxf Python-3.9.6.tgz
-  - cd Python-3.9.6; ./configure; make;
+  - cd Python-3.9.6; ./configure --with-openssl=/usr/; make clean; make; sudo make install;
 - Considering using OpenCV (Open Computer Vision)
 - Considering using YOLO (you only look once) recognition/categorization libraries
   - Current - https://github.com/ultralytics/yolov5
@@ -21,4 +22,4 @@ Compare each image to prior, and save a copy if significant differences exist:
   - Older Darknet - https://pjreddie.com/darknet/yolo/
 
 ### Using ISAPI HTTP endpoints like:
-http://<username>:<password>@<ip-address>/ISAPI/Streaming/channels/101/picture
+http://<username>:<password>@<ip-address>/ISAPI/Streaming/channels/101/picture?videoResolutionWidth=3840&videoResolutionHeight=2160
