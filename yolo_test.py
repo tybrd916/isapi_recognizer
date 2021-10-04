@@ -23,8 +23,10 @@ def clear_output_dir():
         os.remove(hgx)
     for hgx in glob.glob("runs/detect/exp*"):
         os.rmdir(hgx)
-    os.rmdir('runs/detect')
-    os.rmdir('runs')
+    if(glob.glob("runs/detect")):
+        os.rmdir('runs/detect')
+    if(glob.glob("runs")):
+        os.rmdir('runs')
 
 def yolo_magic():
     results = model(download_image())
@@ -51,6 +53,8 @@ def download_image():
         buffer.seek(0)
         i = Image.open(io.BytesIO(buffer.read()))
         # i.save(os.path.join(out_dir, 'image.jpg'), quality=85)
+    else:
+        print(r)
     buffer.close()
     return i
 
