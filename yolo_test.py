@@ -5,13 +5,17 @@ from decouple import config
 from PIL import Image
 # import numpy as np
 
+import time
 import io
 import os
 import glob
 import tempfile
 
+last_image_len = 0
+
 # Model
 model = torch.hub.load('ultralytics/yolov5', 'yolov5s')  # or yolov5m, yolov5l, yolov5x, custom
+model.conf = 0.7
 
 # Clear output pictures
 def clear_output_dir():
@@ -50,7 +54,8 @@ def download_image():
     buffer.close()
     return i
 
-clear_output_dir()
+clear_output_dir() #TODO: make conditional
 for i in range(10):
+    time.sleep(2)
     yolo_magic()
 # download_image()
