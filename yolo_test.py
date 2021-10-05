@@ -19,15 +19,17 @@ logging.disable()
 lastInterestCount=0
 class yoloTest:
     def __init__(self):
+        # Model
+        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
+
         self.model.conf = 0.7
         # self.model.conf = 0.05
         self.maximumSnapshots = 50
         self.snapshotCount = 0
+        
         if not glob.glob("snapshots"):
             os.mkdir("snapshots")
         self.lastInterestCount=0
-        # Model
-        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
         self.objects_of_interest = {
             "person": '',
             "bicycle": '',
