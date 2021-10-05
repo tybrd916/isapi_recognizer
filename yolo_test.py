@@ -19,13 +19,15 @@ logging.disable()
 lastInterestCount=0
 class yoloTest:
     def __init__(self):
+        self.model.conf = 0.7
+        # self.model.conf = 0.05
+        self.maximumSnapshots = 50
+        self.snapshotCount = 0
         if not glob.glob("snapshots"):
             os.mkdir("snapshots")
         self.lastInterestCount=0
         # Model
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
-        # self.model.conf = 0.7
-        self.model.conf = 0.05
         self.objects_of_interest = {
             "person": '',
             "bicycle": '',
@@ -45,6 +47,10 @@ class yoloTest:
             "zebra": '',
             "giraffe": '',
         }
+
+        while self.snapshotCount < self.maximumSnapshots:
+            self.yolo_magic()
+            time.sleep(1)
 
     def yolo_magic(self):
         results = self.model(self.download_image())
@@ -69,6 +75,7 @@ class yoloTest:
                         interestStr += f"{n} {results.names[int(c)]}{'s' * (n > 1)}, "  # add to string
                 print(interestStr)
                 os.mkdir(f"snapshots/{ct}")
+                self.snapshotCount = self.snapshotCount+1
                 results.display(save=True, save_dir=Path(f"snapshots/{ct}")) #save labeled snapshot by date/timestamp
                 self.lastInterestCount=interestCount
 
@@ -95,7 +102,3 @@ class yoloTest:
 
 
 yt=yoloTest()
-while True:
-    yt.yolo_magic()
-    time.sleep(1)
-# download_image()
