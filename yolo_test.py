@@ -26,9 +26,9 @@ class yoloTest:
         # Model
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
 
-        # self.model.conf = 0.7
-        self.model.conf = 0.05
-        self.maximumSnapshots = 10
+        self.model.conf = 0.7
+        # self.model.conf = 0.05
+        self.maximumSnapshots = 200
         self.snapshotCount = 0
         
         if not glob.glob("snapshots"):
@@ -81,6 +81,11 @@ class yoloTest:
                 #TODO: display current image (annotator.im) as image0,  possibly downscale to a thumbnail size too
                 im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
                 im.save("latest.jpg")
+                width, height = im.size
+                im1 = im.crop((0,0,width,height))
+                im1.resize((int(width/4),int(height/4)))
+                im1.save("latest_thumb.jpg")
+
                 if interestCount != self.lastInterestCount:
                     interestStr += f"{ct}: "
                     for c in pred[:, -1].unique():
