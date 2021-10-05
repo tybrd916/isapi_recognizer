@@ -54,7 +54,7 @@ class yoloTest:
             "giraffe": '',
         }
 
-        while self.snapshotCount < self.maximumSnapshots:
+        while True: #infinite loop
             self.yolo_magic()
             time.sleep(1)
 
@@ -90,8 +90,19 @@ class yoloTest:
                     print(interestStr)
                     self.snapshotCount = self.snapshotCount+1
                     im.save(f"snapshots/{interestStr}.jpg")
-                    # results.display(save=True, save_dir=Path(f"snapshots/{ct}")) #save labeled snapshot by date/timestamp
+                    self.clearOldestSnapshots()
             self.lastInterestCount=interestCount
+
+    def clearOldestSnapshots(self):
+        snapshotList = glob.glob("snapshots/*.jpg")
+        numSnapShotsToDelete = len(snapshotList) - self.maximumSnapshots
+        for snapshotPath in snapshotList:
+            if numSnapShotsToDelete > 0:
+                os.remove(snapshotPath)
+                numSnapShotsToDelete=numSnapShotsToDelete-1
+            else:
+                break
+
 
     def download_image(self):
         hostaddress=config('ISAPI_HOST')
