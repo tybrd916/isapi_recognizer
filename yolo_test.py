@@ -17,26 +17,46 @@ last_image_len = 0
 
 # Model
 model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
-# model.conf = 0.6
-model.conf = 0.05
+model.conf = 0.7
+# model.conf = 0.05
+objects_of_interest = {
+    "person": '',
+    "bicycle": '',
+    "car": '',
+    "motorcycle": '',
+    "bus": '',
+    "train": '',
+    "truck": '',
+    "bird": '',
+    "cat": '',
+    "dog": '',
+    "horse": '',
+    "sheep": '',
+    "cow": '',
+    "elephant": '',
+    "bear": '',
+    "zebra": '',
+    "giraffe": '',
+}
 
 def yolo_magic():
     results = model(download_image())
-    print(f"model results loaded")
+    # print(f"model results loaded")
     # Results
     resultList = results.tolist()
+    interestCount=0
     for det in resultList:
-        print(det.pred[:, -1])
+        # print(det.pred[:, -1])
         for c in det.pred[:, -1]:
-            print(results.names[int(c)])
+            if results.names[int(c)] in objects_of_interest:
+                interestCount=interestCount+1
+                print(results.names[int(c)])
+    print(f"# Objects: {interestCount}")
     results.display(save=True)
 
 def download_image():
     hostaddress=config('ISAPI_HOST')
-    print(f'downloading http://{hostaddress}/ISAPI/Streaming/channels/101/picture')
-    # imageResult = requests.get(f'http://{hostaddress}/ISAPI/Streaming/channels/101/picture', auth=HTTPDigestAuth(config('ISAPI_USER'), config('ISAPI_PASSWORD')))
-    # return Image.fromarray(np.asarray(imageResult.content))
-    # return Image.frombytes(imageResult.content)
+    # print(f'downloading http://{hostaddress}/ISAPI/Streaming/channels/101/picture')
     buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
     r = requests.get(f'http://{hostaddress}/ISAPI/Streaming/channels/101/picture', auth=HTTPDigestAuth(config('ISAPI_USER'), config('ISAPI_PASSWORD')), stream=True)
     if r.status_code == 200:
@@ -54,7 +74,7 @@ def download_image():
     buffer.close()
     return i
 
-for i in range(10):
+while True:
     yolo_magic()
     time.sleep(1)
 # download_image()
