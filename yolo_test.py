@@ -11,29 +11,25 @@ import os
 import glob
 import tempfile
 
+import json
+
 last_image_len = 0
 
 # Model
-model = torch.hub.load('ultralytics/yolov5', 'yolov5s')  # or yolov5m, yolov5l, yolov5x, custom
-model.conf = 0.7
-
-# Clear output pictures
-def clear_output_dir():
-    for hgx in glob.glob("runs/detect/exp*/image*jpg"):
-        os.remove(hgx)
-    for hgx in glob.glob("runs/detect/exp*"):
-        os.rmdir(hgx)
-    if(glob.glob("runs/detect")):
-        os.rmdir('runs/detect')
-    if(glob.glob("runs")):
-        os.rmdir('runs')
+model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
+# model.conf = 0.6
+model.conf = 0.05
 
 def yolo_magic():
     results = model(download_image())
     print(f"model results loaded")
     # Results
-    results.print()  # or .show(), .save(), .crop(), .pandas(), etc.
-    results.save()  # or .show(), .save(), .crop(), .pandas(), etc.
+    resultList = results.tolist()
+    for det in resultList:
+        print(det.pred[:, -1])
+        for c in det.pred[:, -1]:
+            print(results.names[int(c)])
+    results.display(save=True)
 
 def download_image():
     hostaddress=config('ISAPI_HOST')
@@ -58,8 +54,7 @@ def download_image():
     buffer.close()
     return i
 
-clear_output_dir() #TODO: make conditional
 for i in range(10):
-    time.sleep(2)
     yolo_magic()
+    time.sleep(1)
 # download_image()
