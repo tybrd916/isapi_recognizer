@@ -79,7 +79,7 @@ class yoloTest:
                 os.mkdir(f"snapshots/{ct}")
                 self.snapshotCount = self.snapshotCount+1
                 results.display(save=True, save_dir=Path(f"snapshots/{ct}")) #save labeled snapshot by date/timestamp
-                self.lastInterestCount=interestCount
+            self.lastInterestCount=interestCount
 
         results.display(save=True) #overwrite image0 for constant
     def download_image(self):
