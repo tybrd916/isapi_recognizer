@@ -96,7 +96,7 @@ class yoloTest:
     def clearOldestSnapshots(self):
         snapshotList = glob.glob("snapshots/*.jpg")
         numSnapShotsToDelete = len(snapshotList) - self.maximumSnapshots
-        for snapshotPath in snapshotList:
+        for snapshotPath in sorted(snapshotList):
             if numSnapShotsToDelete > 0:
                 os.remove(snapshotPath)
                 numSnapShotsToDelete=numSnapShotsToDelete-1
