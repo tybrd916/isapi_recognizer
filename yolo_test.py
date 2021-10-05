@@ -26,7 +26,7 @@ class yoloTest:
         # Model
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
 
-        self.model.conf = 0.7
+        self.model.conf = 0.57
         # self.model.conf = 0.05
         self.maximumSnapshots = 200
         self.snapshotCount = 0
@@ -69,10 +69,11 @@ class yoloTest:
         ct = datetime.datetime.now()
         for i, (im, pred) in enumerate(zip(results.imgs, results.pred)):
             # print(pred[:, -1])
-            for c in pred[:, -1]:
-                if results.names[int(c)] in self.objects_of_interest:
+            for xLeft, yTop, xRight, yBottom, conf, cls in reversed(pred):
+                if (results.names[int(cls)] in self.objects_of_interest
+                and ((xRight > 1300 or yBottom > 900) and (xLeft < 2900 or yBottom > 900)) ):
+                    # print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
                     interestCount=interestCount+1
-                    # print(results.names[int(c)])
             if interestCount > 0:
                 annotator = Annotator(im, example=str(results.names))
                 for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
