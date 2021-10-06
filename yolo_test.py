@@ -84,7 +84,7 @@ class yoloTest:
                 im.save("latest.jpg")
                 width, height = im.size
                 im1 = im.crop((0,0,width,height))
-                im1.resize((int(width/4),int(height/4)))
+                im1.thumbnail((int(width/4),int(height/4)))
                 im1.save("latest_thumb.jpg")
 
                 if interestCount != self.lastInterestCount:
