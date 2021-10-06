@@ -21,22 +21,32 @@
                 $('#snapshots-container').html("<b>Past Snapshots</b>")
                 $.get( "snapshots/", function( data ) {
                     lines = data.split("\n")
+                    var firstLink = true;
                     for(var i = 0; i < lines.length; ++i){
                         var line = lines[i]
                         if(line.match(/^.*href=.*$/)){
-                            var snapshot_url = line.replaceAll(/^.*href="([^"]*)".*$/g,'$1');
-                            if(i === 0){
+                            var snapshot_url = line.replaceAll(/^.*href="([^"]*)".*$/g,'$1').replace(/^\./,"snapshots");
+                            if(snapshot_url === "/"){
+                                continue;
+                            }
+                            if(firstLink){
+                                firstLink=false;
                                 if(lastSnapshot !== snapshot_url){
-                                    
+                                    console.log("snapshot changed! now it's: "+snapshot_url)
+                                } else {
+                                    break; //No need to reload, no new pictures
                                 }
                                 lastSnapshot=snapshot_url
                             }
+                            console.log(snapshot_url)
                             // console.log(line.replaceAll(/^.*href="([^"]*)".*$/g,'$1'))
                         }
                     }
                     console.log("# lines: "+lines.length)
                 });
             }
+            refreshSnapshots()
+            setInterval(refreshSnapshots,10000);
         </script>
     </body>
 </html>
