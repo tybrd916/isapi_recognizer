@@ -9,7 +9,8 @@
     <body>
         <div id="body-flex">
             <div class="container" id="recentSnapshot"></div>
-            <button onClick="togglePastSnapshots();">Past Snapshots</button>
+            <a href="snapshots">All Snapshots ...</a>
+            <button onClick="togglePastSnapshots();" style="width: 100%; height: 100px; font-size: 30px;">Past Snapshots</button>
             <div id="snapshots-container"></div>
         </div>
         <script src="./jquery-3.6.0.min.js"></script>
@@ -44,7 +45,7 @@
                                     console.log("snapshot changed! now it's: "+snapshot_url)
                                     pastSnapshotsString=""
                                     $('#recentSnapshot').html("")
-                                    $('#recentSnapshot').html('<img src="latest_thumb.jpg?cachebuster='+Date.now()+'" style="min-width: 100vw; max-width:100vw; max-height: 100vh;"/>')
+                                    $('#recentSnapshot').html('<img src="'+snapshot_url+'" style="max-width:100vw;"/>')
                                 } else {
                                     break; //No need to reload, no new pictures
                                 }
