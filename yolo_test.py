@@ -30,7 +30,10 @@ class yoloTest:
         # self.model.conf = 0.05
         self.maximumSnapshots = 150
         self.snapshotCount = 0
-        
+
+        self.interestCountsList = [0]
+        self.interestCountsMaxLength = 30
+
         if not glob.glob("snapshots"):
             os.mkdir("snapshots")
         self.lastInterestCount=0
@@ -74,8 +77,17 @@ class yoloTest:
                 and ((xRight > 1300 or yBottom > 900) and (xLeft < 2900 or yBottom > 900)) ):
                     # print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
                     interestCount=interestCount+1
-            if interestCount > 0:
-                if interestCount != self.lastInterestCount:
+            if interestCount >= 0:
+                beforeMax = max(self.interestCountsList)
+                if(len(self.interestCountsList) >= self.interestCountsMaxLength):
+                    self.interestCountsList.pop(0)
+                self.interestCountsList.append(interestCount)
+                print(self.interestCountsList)
+                nowMax = max(self.interestCountsList)
+
+                # if interestCount != self.lastInterestCount:
+                if nowMax > beforeMax:
+                    print(max(self.interestCountsList))
                     annotator = Annotator(im, example=str(results.names))
                     for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
                         label = f'{results.names[int(cls)]} {conf:.2f}'
@@ -114,6 +126,7 @@ class yoloTest:
         hostaddress=config('ISAPI_HOST')
         # print(f'downloading http://{hostaddress}/ISAPI/Streaming/channels/101/picture')
         buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
+        i = None
         r = requests.get(f'http://{hostaddress}/ISAPI/Streaming/channels/101/picture', auth=HTTPDigestAuth(config('ISAPI_USER'), config('ISAPI_PASSWORD')), stream=True)
         if r.status_code == 200:
             downloaded = 0
