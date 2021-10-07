@@ -28,7 +28,7 @@ class yoloTest:
 
         self.model.conf = 0.57
         # self.model.conf = 0.05
-        self.maximumSnapshots = 200
+        self.maximumSnapshots = 150
         self.snapshotCount = 0
         
         if not glob.glob("snapshots"):
@@ -75,19 +75,19 @@ class yoloTest:
                     # print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
                     interestCount=interestCount+1
             if interestCount > 0:
-                annotator = Annotator(im, example=str(results.names))
-                for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
-                    label = f'{results.names[int(cls)]} {conf:.2f}'
-                    annotator.box_label(box, label, color=colors(cls))
-                #TODO: display current image (annotator.im) as image0,  possibly downscale to a thumbnail size too
-                im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
-                im.save("latest.jpg")
-                width, height = im.size
-                im1 = im.crop((0,0,width,height))
-                im1.thumbnail((int(width/4),int(height/4)))
-                im1.save("latest_thumb.jpg")
-
                 if interestCount != self.lastInterestCount:
+                    annotator = Annotator(im, example=str(results.names))
+                    for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
+                        label = f'{results.names[int(cls)]} {conf:.2f}'
+                        annotator.box_label(box, label, color=colors(cls))
+                    #TODO: display current image (annotator.im) as image0,  possibly downscale to a thumbnail size too
+                    im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
+                    im.save("latest.jpg")
+                    width, height = im.size
+                    im1 = im.crop((0,0,width,height))
+                    im1.thumbnail((int(width/4),int(height/4)))
+                    im1.save("latest_thumb.jpg")
+
                     interestStr += f"{ct}: "
                     for c in pred[:, -1].unique():
                         if results.names[int(c)] in self.objects_of_interest:
