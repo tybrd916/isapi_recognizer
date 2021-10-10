@@ -63,9 +63,10 @@ class yoloTest:
             time.sleep(1)
 
     def yolo_magic(self):
-        results = self.model(self.download_image())
-        if results == None:
+        i = self.download_image()
+        if i == None:
             return #avoid crash when no image returned
+        results = self.model(i)
         # print(f"model results loaded")
         # Results
         resultList = results.tolist()
