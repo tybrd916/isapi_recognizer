@@ -13,6 +13,7 @@ import os
 import glob
 import tempfile
 import datetime
+import re
 from pathlib import Path
 
 from yolov5.utils.plots import Annotator, colors
@@ -27,7 +28,7 @@ class yoloTest:
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
 
         self.model.conf = 0.57
-        # self.model.conf = 0.05
+        # self.model.conf = 0.05 
         self.maximumSnapshots = 150
         self.snapshotCount = 0
 
@@ -63,6 +64,8 @@ class yoloTest:
 
     def yolo_magic(self):
         results = self.model(self.download_image())
+        if results == None:
+            return #avoid crash when no image returned
         # print(f"model results loaded")
         # Results
         resultList = results.tolist()
@@ -82,12 +85,12 @@ class yoloTest:
                 if(len(self.interestCountsList) >= self.interestCountsMaxLength):
                     self.interestCountsList.pop(0)
                 self.interestCountsList.append(interestCount)
-                print(self.interestCountsList)
+                # print(self.interestCountsList)
                 nowMax = max(self.interestCountsList)
 
                 # if interestCount != self.lastInterestCount:
                 if nowMax > beforeMax:
-                    print(max(self.interestCountsList))
+                    # print(max(self.interestCountsList))
                     annotator = Annotator(im, example=str(results.names))
                     for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
                         label = f'{results.names[int(cls)]} {conf:.2f}'
@@ -107,7 +110,7 @@ class yoloTest:
                             interestStr += f"{n} {results.names[int(c)]}{'s' * (n > 1)}, "  # add to string
                     print(interestStr)
                     self.snapshotCount = self.snapshotCount+1
-                    im.save(f"snapshots/{interestStr}.jpg")
+                    im.save("snapshots/"+re.sub('[:,]','',interestStr)+".jpg")
                     self.clearOldestSnapshots()
             self.lastInterestCount=interestCount
 
