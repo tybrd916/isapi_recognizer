@@ -16,6 +16,11 @@ import datetime
 import re
 from pathlib import Path
 
+# libraries to be imported
+import smtplib
+from email.message import EmailMessage
+from email.utils import make_msgid
+
 from yolov5.utils.plots import Annotator, colors
 
 import logging
@@ -113,6 +118,7 @@ class yoloTest:
                     self.snapshotCount = self.snapshotCount+1
                     im.save("snapshots/"+re.sub('[:,]','',interestStr)+".jpg")
                     self.clearOldestSnapshots()
+                    self.emailImage(interestStr)
             self.lastInterestCount=interestCount
 
     def clearOldestSnapshots(self):
@@ -147,5 +153,40 @@ class yoloTest:
         buffer.close()
         return i
 
+    # Configure Gmail to allow sending from this app:
+    # https://towardsdatascience.com/automate-sending-emails-with-gmail-in-python-449cc0c3c317
+    def emailImage(self, bodyStr):
+        if(len(config('EMAIL_TO','')) < 5):
+            return; #Do not send e-mail if no EMAIL_TO address is configured
+        attachment = 'latest_thumb.jpg'
+
+        msg = EmailMessage()
+        msg["To"] = config('EMAIL_TO')
+        msg["From"] = config('EMAIL_FROM')
+        msg["Subject"] = "Driveway Yolo Snapshot"
+
+        attachment_cid = make_msgid()
+
+        msg.set_content('<b>%s</b><br/><img src="cid:%s"/><br/>' % (bodyStr, attachment_cid), 'html')
+
+        # msg.add_related(imagebytes, 'image', 'jpeg', cid=attachment_cid)
+        with open(attachment, 'rb') as fp:
+            msg.add_related(
+                fp.read(), 'image', 'jpeg', cid=attachment_cid)
+        
+        # creates SMTP session
+        s = smtplib.SMTP('smtp.gmail.com', 587)
+        
+        # start TLS for security
+        s.starttls()
+        
+        # Authentication
+        s.login(config('EMAIL_FROM'), config('EMAIL_PASSWORD'))
+        
+        # Converts the Multipart msg into a string
+        text = msg.as_string()
+        
+        # sending the mail
+        s.sendmail(config('EMAIL_FROM'), config('EMAIL_TO'), text)
 
 yt=yoloTest()
