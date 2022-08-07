@@ -23,6 +23,7 @@ logging.disable()
 
 lastInterestCount=0
 class yoloTest:
+    hostaddresslist = config('ISAPI_HOST').split(",")
     def __init__(self):
         # Model
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
@@ -32,7 +33,7 @@ class yoloTest:
         self.maximumSnapshots = 150
         self.snapshotCount = 0
 
-        self.interestCountsList = [0]
+        self.interestCountsList = {}
         self.interestCountsMaxLength = 30
 
         if not glob.glob("snapshots"):
@@ -58,12 +59,16 @@ class yoloTest:
             "giraffe": '',
         }
 
+        cameraNum=-1
         while True: #infinite loop
-            self.yolo_magic()
+            cameraNum=cameraNum+1
+            if cameraNum >= len(self.hostaddresslist):
+                cameraNum = 0
+            self.yolo_magic(cameraNum)
             time.sleep(1)
 
-    def yolo_magic(self):
-        i = self.download_image()
+    def yolo_magic(self, cameraNum):
+        i = self.download_image(cameraNum)
         if i == None:
             return #avoid crash when no image returned
         results = self.model(i)
@@ -82,16 +87,18 @@ class yoloTest:
                     # print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
                     interestCount=interestCount+1
             if interestCount >= 0:
-                beforeMax = max(self.interestCountsList)
-                if(len(self.interestCountsList) >= self.interestCountsMaxLength):
-                    self.interestCountsList.pop(0)
-                self.interestCountsList.append(interestCount)
-                # print(self.interestCountsList)
-                nowMax = max(self.interestCountsList)
+                if cameraNum not in self.interestCountsList:
+                    self.interestCountsList[cameraNum] = [0]
+                beforeMax = max(self.interestCountsList[cameraNum])
+                if(len(self.interestCountsList[cameraNum]) >= self.interestCountsMaxLength):
+                    self.interestCountsList[cameraNum].pop(0)
+                self.interestCountsList[cameraNum].append(interestCount)
+                # print(self.interestCountsList[cameraNum])
+                nowMax = max(self.interestCountsList[cameraNum])
 
                 # if interestCount != self.lastInterestCount:
                 if nowMax > beforeMax:
-                    # print(max(self.interestCountsList))
+                    # print(max(self.interestCountsList[cameraNum]))
                     annotator = Annotator(im, example=str(results.names))
                     for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
                         label = f'{results.names[int(cls)]} {conf:.2f}'
@@ -126,8 +133,8 @@ class yoloTest:
                 break
 
 
-    def download_image(self):
-        hostaddress=config('ISAPI_HOST')
+    def download_image(self,cameraNum):
+        hostaddress=self.hostaddresslist[cameraNum]
         # print(f'downloading http://{hostaddress}/ISAPI/Streaming/channels/101/picture')
         buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
         i = None
