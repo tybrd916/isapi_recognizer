@@ -1,4 +1,5 @@
 import sys
+import json
 sys.path.insert(0, './yolov5')
 import torch
 import requests
@@ -23,15 +24,25 @@ logging.disable()
 
 lastInterestCount=0
 class yoloTest:
-    hostaddresslist = config('ISAPI_HOST').split(",")
+    hostaddresslist = config('ISAPI_HOSTS').split(",")
+    cameranamelist = config('ISAPI_HOST_NAMES').split(",")
+    cameraLastPredictions = {}
+    if len(hostaddresslist) != len(cameranamelist):
+        print("Fatal error, host list and name lists are different lengths!")
+        print(hostaddresslist)
+        print(cameranamelist)
+        exit(5)
     def __init__(self):
         # Model
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
 
-        self.model.conf = 0.57
-        # self.model.conf = 0.05 
+        self.model.conf = float(config('MIN_CONFIDENCE'))
         self.maximumSnapshots = 150
         self.snapshotCount = 0
+        if os.path.exists('cameraLastPredictions.json'):
+            with open('cameraLastPredictions.json', 'r') as openfile: 
+                # Reading from json file
+                self.cameraLastPredictions = json.load(openfile)
 
         self.interestCountsList = {}
         self.interestCountsMaxLength = 30
@@ -65,9 +76,13 @@ class yoloTest:
             if cameraNum >= len(self.hostaddresslist):
                 cameraNum = 0
             self.yolo_magic(cameraNum)
-            time.sleep(1)
+            # time.sleep(1)
 
     def yolo_magic(self, cameraNum):
+        # ct stores current time
+        ct = datetime.datetime.now()
+        cameraname = self.cameranamelist[cameraNum]
+        # print(f"{ct} starting {cameraname} check")
         i = self.download_image(cameraNum)
         if i == None:
             return #avoid crash when no image returned
@@ -75,17 +90,40 @@ class yoloTest:
         # print(f"model results loaded")
         # Results
         resultList = results.tolist()
+        if cameraname not in self.cameraLastPredictions:
+            self.cameraLastPredictions[cameraname] = {}
         interestCount=0
         interestStr=""
-        # ct stores current time
-        ct = datetime.datetime.now()
+        # print(f"{ct} checking {cameraname}")
         for i, (im, pred) in enumerate(zip(results.imgs, results.pred)):
             # print(pred[:, -1])
             for xLeft, yTop, xRight, yBottom, conf, cls in reversed(pred):
-                if (results.names[int(cls)] in self.objects_of_interest
-                and ((xRight > 1300 or yBottom > 900) and (xLeft < 2900 or yBottom > 900)) ):
-                    # print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
-                    interestCount=interestCount+1
+                if results.names[int(cls)] in self.objects_of_interest:
+                    pixelTolerance=10
+                    if results.names[int(cls)] not in self.cameraLastPredictions[cameraname]:
+                        self.cameraLastPredictions[cameraname][results.names[int(cls)]] = {}
+                    else:
+                        # Check if this object was already scene in most recent picture in the same rectangle spot
+                        # If so, ignore it and move to the next pred to check
+                        lastpred = self.cameraLastPredictions[cameraname][results.names[int(cls)]]
+                        if (lastpred["xLeft"]-pixelTolerance < xLeft and lastpred["xLeft"]+pixelTolerance > xLeft
+                        and lastpred["yTop"]-pixelTolerance < yTop and lastpred["yTop"]+pixelTolerance > yTop
+                        and lastpred["xRight"]-pixelTolerance < xRight and lastpred["xRight"]+pixelTolerance > xRight
+                        and lastpred["yBottom"]-pixelTolerance < yBottom and lastpred["yBottom"]+pixelTolerance > yBottom): 
+                            continue
+
+                    #Save current prediction into self.cameraLastPredictions dictionary
+                    self.cameraLastPredictions[cameraname][results.names[int(cls)]] = {
+                        "xLeft": int(xLeft),
+                        "yTop": int(yTop),
+                        "xRight": int(xRight),
+                        "yBottom": int(yBottom)
+                    }
+                    #Ignore object on top edge of picture
+                    if ((xRight > 1300 or yBottom > 900) and (xLeft < 2900 or yBottom > 900)):
+                        # print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
+                        interestCount=interestCount+1
+            #Check if objects of interest have increased in recent picture history
             if interestCount >= 0:
                 if cameraNum not in self.interestCountsList:
                     self.interestCountsList[cameraNum] = [0]
@@ -96,6 +134,10 @@ class yoloTest:
                 # print(self.interestCountsList[cameraNum])
                 nowMax = max(self.interestCountsList[cameraNum])
 
+                # print(json.dumps(self.cameraLastPredictions, indent=1))
+                with open("cameraLastPredictions.json", "w") as outfile:
+                    outfile.write(json.dumps(self.cameraLastPredictions, indent=1))
+
                 # if interestCount != self.lastInterestCount:
                 if nowMax > beforeMax:
                     # print(max(self.interestCountsList[cameraNum]))
@@ -105,13 +147,13 @@ class yoloTest:
                         annotator.box_label(box, label, color=colors(cls))
                     #TODO: display current image (annotator.im) as image0,  possibly downscale to a thumbnail size too
                     im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
-                    im.save("latest.jpg")
-                    width, height = im.size
-                    im1 = im.crop((0,0,width,height))
-                    im1.thumbnail((int(width/4),int(height/4)))
-                    im1.save("latest_thumb.jpg")
+                    # im.save("latest.jpg")
+                    # width, height = im.size
+                    # im1 = im.crop((0,0,width,height))
+                    # im1.thumbnail((int(width/4),int(height/4)))
+                    # im1.save("latest_thumb.jpg")
 
-                    interestStr += f"{ct}: "
+                    interestStr += f"{ct} {cameraname}: "
                     for c in pred[:, -1].unique():
                         if results.names[int(c)] in self.objects_of_interest:
                             n = (pred[:, -1] == c).sum()  # detections per class
