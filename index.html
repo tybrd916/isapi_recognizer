@@ -32,7 +32,7 @@
                     lines = data.split("\n")
                     var firstLink = true;
                     var linkCount = 0;
-                    for(var i = 0; i < lines.length && linkCount < 20; ++i){
+                    for(var i = 0; i < lines.length && linkCount < 30; ++i){
                         var line = lines[i]
                         if(line.match(/^.*href=.*$/)){
                             var snapshot_url = line.replaceAll(/^.*href="([^"]*)".*$/g,'$1').replace(/^/,"snapshots/");
