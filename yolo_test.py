@@ -1,7 +1,20 @@
+GPU_MEMORY_LIMIT=2000
 import sys
 import json
+import os
 sys.path.insert(0, './yolov5')
 import torch
+
+import subprocess as sp
+
+def get_gpu_memory():
+    command = "nvidia-smi --query-gpu=memory.free --format=csv"
+    memory_free_info = sp.check_output(command.split()).decode('ascii').split('\n')[:-1][1:]
+    memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
+    return memory_free_values
+
+torch.cuda.is_available = lambda : get_gpu_memory()[0] > GPU_MEMORY_LIMIT
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 import requests
 from requests.auth import HTTPDigestAuth
 from decouple import config
@@ -10,7 +23,6 @@ import numpy as np
 
 import time
 import io
-import os
 import glob
 import tempfile
 import datetime
@@ -34,7 +46,7 @@ class yoloTest:
         exit(5)
     def __init__(self):
         # Model
-        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5x')  # or yolov5m, yolov5l, yolov5x, custom
+        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
 
         self.model.conf = float(config('MIN_CONFIDENCE'))
         self.maximumSnapshots = 150
@@ -77,6 +89,16 @@ class yoloTest:
                 cameraNum = 0
             self.yolo_magic(cameraNum)
             time.sleep(0.5)
+            # print(get_gpu_memory())
+            # print(device)
+            if(get_gpu_memory()[0] < GPU_MEMORY_LIMIT and f"{device}" == "cuda"):
+                print(get_gpu_memory())
+                print(device)
+                exit(6)
+            if(get_gpu_memory()[0] > GPU_MEMORY_LIMIT and f"{device}" == "cpu"):
+                print(get_gpu_memory())
+                print(device)
+                exit(7)
 
     def yolo_magic(self, cameraNum):
         # ct stores current time
@@ -87,6 +109,7 @@ class yoloTest:
         if i == None:
             return #avoid crash when no image returned
         results = self.model(i)
+        # print(results)
         if cameraname not in self.cameraLastPredictions:
             self.cameraLastPredictions[cameraname] = {}
         interestCount=0
