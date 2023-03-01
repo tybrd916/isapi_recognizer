@@ -6,3 +6,4 @@ snapshots
 **.log
 *.json
 yolov5
+*.pt
