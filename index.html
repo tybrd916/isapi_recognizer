@@ -29,13 +29,20 @@
             var lastSnapshot = "";
             function refreshSnapshots(){
                 $.get( "snapshots/", function( data ) {
-                    lines = data.split("\n")
                     var firstLink = true;
                     var linkCount = 0;
-                    for(var i = 0; i < lines.length && linkCount < 30; ++i){
-                        var line = lines[i]
-                        if(line.match(/^.*href=.*$/)){
-                            var snapshot_url = line.replaceAll(/^.*href="([^"]*)".*$/g,'$1').replace(/^/,"snapshots/");
+                    data.sort(function(a, b) { //Sort the data by filename descending, which is reverse chronological
+                        var keyA = a.name,
+                            keyB = b.name;
+                        // Compare the 2 dates
+                        if (keyA < keyB) return 1;
+                        if (keyA > keyB) return -1;
+                        return 0;
+                        });
+                    for(var i = 0; i < data.length && linkCount < 30; ++i){
+                        var line = data[i]
+                        if(line.name.match(/.*.jpg$/)){
+                            var snapshot_url = "snapshots/"+line.name;
                             console.log(snapshot_url)
                             if(snapshot_url === "/" || snapshot_url === "snapshots//"){
                                 continue;

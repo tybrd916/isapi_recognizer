@@ -34,12 +34,12 @@ class yoloTest:
         exit(5)
     def __init__(self):
         # Model
-        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
+        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5x')  # or yolov5m, yolov5l, yolov5x, custom
 
         self.model.conf = float(config('MIN_CONFIDENCE'))
         self.maximumSnapshots = 150
         self.snapshotCount = 0
-        if os.path.exists('cameraLastPredictions.json'):
+        if os.path.exists('cameraLastPredictions.json') and os.stat('cameraLastPredictions.json').st_size > 0:
             with open('cameraLastPredictions.json', 'r') as openfile: 
                 # Reading from json file
                 self.cameraLastPredictions = json.load(openfile)
@@ -76,7 +76,7 @@ class yoloTest:
             if cameraNum >= len(self.hostaddresslist):
                 cameraNum = 0
             self.yolo_magic(cameraNum)
-            # time.sleep(1)
+            time.sleep(0.5)
 
     def yolo_magic(self, cameraNum):
         # ct stores current time
@@ -87,19 +87,16 @@ class yoloTest:
         if i == None:
             return #avoid crash when no image returned
         results = self.model(i)
-        # print(f"model results loaded")
-        # Results
-        resultList = results.tolist()
         if cameraname not in self.cameraLastPredictions:
             self.cameraLastPredictions[cameraname] = {}
         interestCount=0
         interestStr=""
         # print(f"{ct} checking {cameraname}")
-        for i, (im, pred) in enumerate(zip(results.imgs, results.pred)):
+        for i, (im, pred) in enumerate(zip(results.ims, results.pred)):
             # print(pred[:, -1])
             for xLeft, yTop, xRight, yBottom, conf, cls in reversed(pred):
                 if results.names[int(cls)] in self.objects_of_interest:
-                    pixelTolerance=10
+                    pixelTolerance=80
                     if results.names[int(cls)] not in self.cameraLastPredictions[cameraname]:
                         self.cameraLastPredictions[cameraname][results.names[int(cls)]] = {}
                     else:
