@@ -28,7 +28,7 @@
             // console.log("Tyler playground")
             var lastSnapshot = "";
             function refreshSnapshots(){
-                $.get( "snapshots/", function( data ) {
+                $.get( "snapshots_json/", function( data ) {
                     var firstLink = true;
                     var linkCount = 0;
                     data.sort(function(a, b) { //Sort the data by filename descending, which is reverse chronological

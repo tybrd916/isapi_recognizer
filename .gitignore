@@ -2,7 +2,7 @@
 image0.jpg
 latest.jpg
 latest_thumb.jpg
-snapshots
+snapshots*
 **.log
 *.json
 yolov5
