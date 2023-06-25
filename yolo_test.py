@@ -145,7 +145,7 @@ class yoloTest:
                         interestCount=interestCount+1
             #Check if objects of interest have increased in recent picture history
             if interestCount >= 0:
-                if cameraNum not in self.interestCountsList:
+                if cameraname not in self.interestCountsList:
                     self.interestCountsList[cameraname] = [0]
                 beforeMax = max(self.interestCountsList[cameraname])
                 if(len(self.interestCountsList[cameraname]) >= self.interestCountsMaxLength):
