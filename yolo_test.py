@@ -146,13 +146,13 @@ class yoloTest:
             #Check if objects of interest have increased in recent picture history
             if interestCount >= 0:
                 if cameraNum not in self.interestCountsList:
-                    self.interestCountsList[cameraNum] = [0]
-                beforeMax = max(self.interestCountsList[cameraNum])
-                if(len(self.interestCountsList[cameraNum]) >= self.interestCountsMaxLength):
-                    self.interestCountsList[cameraNum].pop(0)
-                self.interestCountsList[cameraNum].append(interestCount)
-                # print(self.interestCountsList[cameraNum])
-                nowMax = max(self.interestCountsList[cameraNum])
+                    self.interestCountsList[cameraname] = [0]
+                beforeMax = max(self.interestCountsList[cameraname])
+                if(len(self.interestCountsList[cameraname]) >= self.interestCountsMaxLength):
+                    self.interestCountsList[cameraname].pop(0)
+                self.interestCountsList[cameraname].append(interestCount)
+                # print(self.interestCountsList[cameraname])
+                nowMax = max(self.interestCountsList[cameraname])
 
                 # print(json.dumps(self.cameraLastPredictions, indent=1))
                 with open("cameraLastPredictions.json", "w") as outfile:
@@ -160,7 +160,7 @@ class yoloTest:
 
                 # if interestCount != self.lastInterestCount:
                 if nowMax > beforeMax:
-                    # print(max(self.interestCountsList[cameraNum]))
+                    # print(max(self.interestCountsList[cameraname]))
                     annotator = Annotator(im, example=str(results.names))
                     for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
                         label = f'{results.names[int(cls)]} {conf:.2f}'
