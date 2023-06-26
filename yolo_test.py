@@ -113,6 +113,7 @@ class yoloTest:
         if cameraname not in self.cameraLastPredictions:
             self.cameraLastPredictions[cameraname] = {}
         interestCount=0
+        interestMaxBottom = 0;
         interestStr=""
         # print(f"{ct} checking {cameraname}")
         for i, (im, pred) in enumerate(zip(results.ims, results.pred)):
@@ -143,6 +144,8 @@ class yoloTest:
                     if ((xRight > 1300 or yBottom > 900) and (xLeft < 2900 or yBottom > 900)):
                         # print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
                         interestCount=interestCount+1
+                    if (yBottom > interestMaxBottom):
+                        interestMaxBottom = yBottom
             #Check if objects of interest have increased in recent picture history
             if interestCount >= 0:
                 if cameraname not in self.interestCountsList:
@@ -181,11 +184,15 @@ class yoloTest:
                     print(interestStr)
                     self.snapshotCount = self.snapshotCount+1
                     im.save("snapshots/"+re.sub('[:,]','',interestStr)+".jpg")
+                    if (cameraname == "Driveway" and interestMaxBottom > 900) or cameraname == "Backyard" or (cameraName == "NorthSide" and interestMaxBottom > 800):
+                        im.save("yardsnapshots/"+re.sub('[:,]','',interestStr)+".jpg")
+                        self.clearOldestSnapshots("yardsnapshots")
+                    im.save("snapshots/"+re.sub('[:,]','',interestStr)+".jpg")
                     self.clearOldestSnapshots()
             self.lastInterestCount=interestCount
 
-    def clearOldestSnapshots(self):
-        snapshotList = glob.glob("snapshots/*.jpg")
+    def clearOldestSnapshots(self,dirname="snapshots"):
+        snapshotList = glob.glob(dirname+"/*.jpg")
         numSnapShotsToDelete = len(snapshotList) - self.maximumSnapshots
         for snapshotPath in sorted(snapshotList):
             if numSnapShotsToDelete > 0:
