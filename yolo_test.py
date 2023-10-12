@@ -54,7 +54,10 @@ class yoloTest:
         if os.path.exists('cameraLastPredictions.json') and os.stat('cameraLastPredictions.json').st_size > 0:
             with open('cameraLastPredictions.json', 'r') as openfile: 
                 # Reading from json file
-                self.cameraLastPredictions = json.load(openfile)
+                try:
+                    self.cameraLastPredictions = json.load(openfile)
+                except:
+                    self.cameraLastPredictions = {}
 
         self.interestCountsList = {}
         self.interestCountsMaxLength = 30
