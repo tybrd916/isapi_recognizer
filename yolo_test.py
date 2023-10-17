@@ -6,6 +6,7 @@ from requests.auth import HTTPDigestAuth
 from decouple import config
 from PIL import Image
 import numpy as np
+import urllib.request
 
 import time
 import io
@@ -32,8 +33,8 @@ class yoloTest:
         # Model
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
 
-        self.model.conf = 0.57
-        # self.model.conf = 0.05 
+        self.model.conf = 0.75
+        # self.model.conf = 0.05
         self.maximumSnapshots = 150
         self.snapshotCount = 0
 
@@ -51,21 +52,19 @@ class yoloTest:
             "bus": '',
             "train": '',
             "truck": '',
-            "bird": '',
-            "cat": '',
-            "dog": '',
+            #"cat": '',
+            #"dog": '',
             "horse": '',
             "sheep": '',
             "cow": '',
             "elephant": '',
             "bear": '',
-            "zebra": '',
             "giraffe": '',
         }
 
         while True: #infinite loop
             self.yolo_magic()
-            time.sleep(1)
+            time.sleep(2)
 
     def yolo_magic(self):
         i = self.download_image()
@@ -83,8 +82,10 @@ class yoloTest:
             # print(pred[:, -1])
             for xLeft, yTop, xRight, yBottom, conf, cls in reversed(pred):
                 if (results.names[int(cls)] in self.objects_of_interest
-                and ((xRight > 1300 or yBottom > 900) and (xLeft < 2900 or yBottom > 900)) ):
-                    # print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
+                and ((xLeft > 1536 or yBottom > 800) and (xRight < 1536 or yBottom > 220)) #2 steps to ignore road with rectangles
+                and ((xLeft < 2980 or yTop < 1000))
+                ): #Ignore the bottom right corner for garden stones and Mary/Joseph
+                    print(f"{results.names[int(cls)]} ({conf}) {int(xLeft)}x{int(yTop)} {int(xRight)}x{int(yBottom)}")
                     interestCount=interestCount+1
             if interestCount >= 0:
                 beforeMax = max(self.interestCountsList)
@@ -118,7 +119,8 @@ class yoloTest:
                     self.snapshotCount = self.snapshotCount+1
                     im.save("snapshots/"+re.sub('[:,]','',interestStr)+".jpg")
                     self.clearOldestSnapshots()
-                    self.emailImage(interestStr)
+                    #self.emailImage(interestStr)
+                    self.emailImage("")
             self.lastInterestCount=interestCount
 
     def clearOldestSnapshots(self):
@@ -161,7 +163,7 @@ class yoloTest:
         attachment = 'latest_thumb.jpg'
 
         msg = EmailMessage()
-        msg["To"] = config('EMAIL_TO')
+        msg["To"] = config('EMAIL_TO').split(",")
         msg["From"] = config('EMAIL_FROM')
         msg["Subject"] = "Driveway Yolo Snapshot"
 
@@ -173,20 +175,24 @@ class yoloTest:
         with open(attachment, 'rb') as fp:
             msg.add_related(
                 fp.read(), 'image', 'jpeg', cid=attachment_cid)
-        
+       
         # creates SMTP session
         s = smtplib.SMTP('smtp.gmail.com', 587)
-        
+       
         # start TLS for security
         s.starttls()
-        
+       
         # Authentication
         s.login(config('EMAIL_FROM'), config('EMAIL_PASSWORD'))
-        
+       
         # Converts the Multipart msg into a string
         text = msg.as_string()
-        
+       
         # sending the mail
-        s.sendmail(config('EMAIL_FROM'), config('EMAIL_TO'), text)
+        s.sendmail(config('EMAIL_FROM'), config('EMAIL_TO').split(","), text)
+        #s.sendmail(config('EMAIL_FROM'), config('EMAIL_TO'), text)
+        # tell Homeseer to announce motion
+        with urllib.request.urlopen('http://192.168.40.250:88/JSON?request=runevent&group=Driveway&name=Announce%20Driveway%20Motion') as response:
+           html = response.read()
 
 yt=yoloTest()
