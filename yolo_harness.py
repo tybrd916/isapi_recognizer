@@ -14,29 +14,37 @@ import tempfile
 from PIL import Image
 from decouple import config
 import io
+import sys
+sys.path.insert(0, './yolov5')
+import torch
 
 class yolo_harness:
     configDict = {
         "cameras": {
-            # "backyard": {"blindspots": [],
-            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD')
-            #             },
             "sideyard": {"blindspots": [],
                          "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
                          "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD')
+                         "password": config('CAM_PASSWORD'),
+                         "minConfidence": 0.65,
+                         "maxSnapshotsToKeep": 150,
                         },
+            # "backyard": {"blindspots": [],
+            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             },
             # "driveway": {"blindspots": [(0.0,0.2),(1.0,0.2)],
             #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
             #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
             #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD')
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
             #             }
         },
+        "minConfidence": 0.65,
         # "camera_sequence": ["driveway","backyard"]
     }
     lastFrameDict = {
@@ -50,10 +58,15 @@ class yolo_harness:
             for key in self.configDict["cameras"]:
                 camera_sequence.append(key)
             self.configDict["camera_sequence"] = camera_sequence
-        print(self.configDict)
+        # initialize yolo model
+        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
+
+        self.model.conf = float(self.configDict["minConfidence"])
+        self.maximumSnapshots = 150
         self.cameraLoop()
 
     def cameraLoop(self):
+        print("Starting Camera watching loop")
         numCameras = len(self.configDict["camera_sequence"])
         currentCamera = 0
         # while True: #infinite loop
@@ -66,7 +79,12 @@ class yolo_harness:
 
     def processCameraImage(self, currentCameraName, cameraConfig):
         image = self.download_image(cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
-        print(image)
+        if image == None:
+            print(f"failed to download image from {cameraConfig['+url']}")
+            return #avoid crash when no image is returned
+        # print(image)
+        results = self.model(image)
+        print(results)
 
     def download_image(self, url, username, password):
         buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
