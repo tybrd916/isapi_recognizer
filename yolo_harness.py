@@ -11,11 +11,18 @@
 class yolo_harness:
     configDict = {
         "cameras": [
-            {"name": "backyard"}
-        ]
+            {"name": "backyard"},
+            {"name": "driveway"}
+        ],
+        "camera_sequence": ["driveway","backyard"]
     }
 
     def __init__(self):
         print(self.configDict)
+        self.cameraLoop()
+
+    def cameraLoop(self):
+        numCameras = len(self.configDict["cameras"]) if "camera_sequence" not in self.configDict else len(self.configDict["camera_sequence"])
+        print(numCameras)
 
 yh = yolo_harness()
