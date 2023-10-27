@@ -17,16 +17,24 @@ import io
 import sys
 sys.path.insert(0, './yolov5')
 import torch
+import time
+import json
 
 class yolo_harness:
     configDict = {
         "cameras": {
-            "sideyard": {"blindspots": [],
-                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
-                         "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD'),
-                         "minConfidence": 0.65,
+            # "sideyard": {"blindspots": [],
+            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             },
+            "randomtraffic": {"blindspots": [],
+                         "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
+                         "user": "",
+                         "password": "",
                          "maxSnapshotsToKeep": 150,
                         },
             # "backyard": {"blindspots": [],
@@ -69,22 +77,38 @@ class yolo_harness:
         print("Starting Camera watching loop")
         numCameras = len(self.configDict["camera_sequence"])
         currentCamera = 0
-        # while True: #infinite loop
-        currentCamera=currentCamera+1
-        if(currentCamera >= numCameras):
-            currentCamera=0
-        currentCameraName = self.configDict["camera_sequence"][currentCamera]
-        cameraConfig = self.configDict["cameras"][currentCameraName]
-        self.processCameraImage(currentCameraName, cameraConfig)
+        while True: #infinite loop
+            currentCamera=currentCamera+1
+            if(currentCamera >= numCameras):
+                currentCamera=0
+            currentCameraName = self.configDict["camera_sequence"][currentCamera]
+            cameraConfig = self.configDict["cameras"][currentCameraName]
+            self.processCameraImage(currentCameraName, cameraConfig)
+            time.sleep(10)
 
     def processCameraImage(self, currentCameraName, cameraConfig):
         image = self.download_image(cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
         if image == None:
             print(f"failed to download image from {cameraConfig['+url']}")
             return #avoid crash when no image is returned
-        # print(image)
         results = self.model(image)
         print(results)
+        if currentCameraName not in self.lastFrameDict:
+            self.lastFrameDict[currentCameraName] = {}
+        # Loop over yolo results
+        objectsDetected = {}
+        for i, (im, pred) in enumerate(zip(results.ims, results.pred)):
+            for xLeft, yTop, xRight, yBottom, conf, cls in reversed(pred):
+                detectedName=results.names[int(cls)]
+                if detectedName in cameraConfig["objects_of_interest"]:
+                    if detectedName not in objectsDetected:
+                        objectsDetected[detectedName]=[]
+                    objectDetected = {}
+                    objectDetected["topLeft"] = (int(xLeft)/image.width,int(yTop)/image.height)
+                    objectDetected["bottomRight"] = (int(xRight)/image.width,int(yBottom)/image.height)
+                    objectDetected["confidence"] = float(conf)
+                    objectsDetected[detectedName] = objectDetected
+        print(json.dumps(objectsDetected, indent=1))
 
     def download_image(self, url, username, password):
         buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
