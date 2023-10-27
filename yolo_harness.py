@@ -104,10 +104,15 @@ class yolo_harness:
                     if detectedName not in objectsDetected:
                         objectsDetected[detectedName]=[]
                     objectDetected = {}
-                    objectDetected["topLeft"] = (int(xLeft)/image.width,int(yTop)/image.height)
-                    objectDetected["bottomRight"] = (int(xRight)/image.width,int(yBottom)/image.height)
+                    objectDetected["topLeft"] = (int(xLeft),int(yTop))
+                    objectDetected["bottomRight"] = (int(xRight),int(yBottom))
+                    objectDetected["topLeftPercent"] = (int(xLeft)/image.width,int(yTop)/image.height)
+                    objectDetected["bottomRightPercent"] = (int(xRight)/image.width,int(yBottom)/image.height)
                     objectDetected["confidence"] = float(conf)
-                    objectsDetected[detectedName] = objectDetected
+                    objectsDetected[detectedName].append(objectDetected)
+        #TODO: Compare objects detected to most recent frame from camera
+        #TODO: Add the blindspot regions
+        self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectDetected
         print(json.dumps(objectsDetected, indent=1))
 
     def download_image(self, url, username, password):
