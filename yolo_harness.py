@@ -12,24 +12,43 @@ class yolo_harness:
     configDict = {
         "cameras": {
             "backyard": {"blindspots": [],
-                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"]
+                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "",
+                         "user": "",
+                         "password": ""
                         },
             "driveway": {"blindspots": [(0.0,0.2),(1.0,0.2)],
-                         "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"]
+                         "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "",
+                         "user": "",
+                         "password": ""
                         }
         },
-        "camera_sequence": ["driveway","backyard"]
+        "xxcamera_sequence": ["driveway","backyard"]
     }
     lastFrameDict = {
-        #Store information about the last frame for each camera name "key": (and persist/reload from disk for when program restarts)
+        #Store information about the objects in most recent frame (and lookback period too) for each camera name "key": (and persist/reload from disk for when program restarts)
     }
 
     def __init__(self):
-        print(self.configDict)
+        # Initialize camera_sequence if not already configured
+        if "camera_sequence" not in self.configDict:
+            camera_sequence = []
+            for key in self.configDict["cameras"]:
+                camera_sequence.append(key)
+            self.configDict["camera_sequence"] = camera_sequence
         self.cameraLoop()
 
     def cameraLoop(self):
-        numCameras = len(self.configDict["cameras"]) if "camera_sequence" not in self.configDict else len(self.configDict["camera_sequence"])
-        print(numCameras)
+        numCameras = len(self.configDict["camera_sequence"])
+        currentCamera = 0
+        while True: #infinite loop
+            currentCamera=currentCamera+1
+            if(currentCamera >= numCameras):
+                currentCamera=0
+            currentCameraName = self.configDict["camera_sequence"][currentCamera]
+            cameraConfig = self.configDict["cameras"][currentCameraName]
+            print(cameraConfig)
+
 
 yh = yolo_harness()
