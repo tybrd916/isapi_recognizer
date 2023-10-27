@@ -10,11 +10,18 @@
 
 class yolo_harness:
     configDict = {
-        "cameras": [
-            {"name": "backyard"},
-            {"name": "driveway"}
-        ],
+        "cameras": {
+            "backyard": {"blindspots": [],
+                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"]
+                        },
+            "driveway": {"blindspots": [(0.0,0.2),(1.0,0.2)],
+                         "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"]
+                        }
+        },
         "camera_sequence": ["driveway","backyard"]
+    }
+    lastFrameDict = {
+        #Store information about the last frame for each camera name "key": (and persist/reload from disk for when program restarts)
     }
 
     def __init__(self):
