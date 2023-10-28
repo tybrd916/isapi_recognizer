@@ -53,6 +53,7 @@ class yolo_harness:
             #             }
         },
         "minConfidence": 0.65,
+        "objectBoundaryFuzzyMatch": 0.1,
         # "camera_sequence": ["driveway","backyard"]
     }
     lastFrameDict = {
@@ -84,7 +85,7 @@ class yolo_harness:
             currentCameraName = self.configDict["camera_sequence"][currentCamera]
             cameraConfig = self.configDict["cameras"][currentCameraName]
             self.processCameraImage(currentCameraName, cameraConfig)
-            time.sleep(10)
+            time.sleep(2)
 
     def processCameraImage(self, currentCameraName, cameraConfig):
         image = self.download_image(cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
@@ -95,6 +96,7 @@ class yolo_harness:
         print(results)
         if currentCameraName not in self.lastFrameDict:
             self.lastFrameDict[currentCameraName] = {}
+            self.lastFrameDict[currentCameraName]["lastObjectsDetected"] = None
         # Loop over yolo results
         objectsDetected = {}
         for i, (im, pred) in enumerate(zip(results.ims, results.pred)):
@@ -110,9 +112,30 @@ class yolo_harness:
                     objectDetected["bottomRightPercent"] = (int(xRight)/image.width,int(yBottom)/image.height)
                     objectDetected["confidence"] = float(conf)
                     objectsDetected[detectedName].append(objectDetected)
-        #TODO: Compare objects detected to most recent frame from camera
+
+        #Compare objects detected to most recent frame from camera
+        if self.lastFrameDict[currentCameraName]["lastObjectsDetected"]:
+            previousObjects = self.lastFrameDict[currentCameraName]["lastObjectsDetected"]
+            for key in objectsDetected:
+                if key in previousObjects:
+                    for i, obj in enumerate(objectsDetected[key]):
+                        topLeftX_max = float(obj["topLeftPercent"][0])+float(self.configDict["objectBoundaryFuzzyMatch"])
+                        topLeftX_min = float(obj["topLeftPercent"][0])-float(self.configDict["objectBoundaryFuzzyMatch"])
+                        topLeftY_max = float(obj["topLeftPercent"][1])+float(self.configDict["objectBoundaryFuzzyMatch"])
+                        topLeftY_min = float(obj["topLeftPercent"][1])-float(self.configDict["objectBoundaryFuzzyMatch"])
+                        bottomRightX_max = float(obj["bottomRightPercent"][0])+float(self.configDict["objectBoundaryFuzzyMatch"])
+                        bottomRightX_min = float(obj["bottomRightPercent"][0])-float(self.configDict["objectBoundaryFuzzyMatch"])
+                        bottomRightY_max = float(obj["bottomRightPercent"][1])+float(self.configDict["objectBoundaryFuzzyMatch"])
+                        bottomRightY_min = float(obj["bottomRightPercent"][1])-float(self.configDict["objectBoundaryFuzzyMatch"])
+                        for prevobj in previousObjects[key]:
+                            if prevobj["topLeftPercent"][0] > topLeftX_min and prevobj["topLeftPercent"][0] < topLeftX_max and \
+                               prevobj["topLeftPercent"][1] > topLeftY_min and prevobj["topLeftPercent"][1] < topLeftY_max and \
+                               prevobj["bottomRightPercent"][0] > bottomRightX_min and prevobj["bottomRightPercent"][0] < bottomRightX_max and \
+                               prevobj["bottomRightPercent"][1] > bottomRightY_min and prevobj["bottomRightPercent"][1] < bottomRightY_max:
+                                # print(f"{key} already seen!")
+                                objectsDetected[key][i]["dejavu"]=True
         #TODO: Add the blindspot regions
-        self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectDetected
+        self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
         print(json.dumps(objectsDetected, indent=1))
 
     def download_image(self, url, username, password):
