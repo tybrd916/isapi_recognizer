@@ -1,4 +1,5 @@
 # Scan any HTTP camera source still image
+#  TODO: Add getting still images from RTSP streams since one of Ted's camera's doesn't give HTTP still image (https://github.com/Cacsjep/pyrtsputils/blob/main/snapshot_generator.py)
 #  Include option for HTTP Auth parameters being passed securely
 # Parse photos in camera specific subdirectories
 #  Configurable via set-up file with camera URL/credentials, directory name
