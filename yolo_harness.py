@@ -30,9 +30,10 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            "randomtraffic": {"blindspots": [],
+            "randomtraffic": {"blindspots": [((0.0,0.5),(1.0,1.0))],
                          "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
+                        #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
+                         "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
                          "user": "",
                          "password": "",
                          "maxSnapshotsToKeep": 150,
@@ -44,7 +45,7 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            # "driveway": {"blindspots": [(0.0,0.2),(1.0,0.2)],
+            # "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
             #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
             #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
             #              "user": config('CAM_USER'),
@@ -111,14 +112,19 @@ class yolo_harness:
                     objectDetected["topLeftPercent"] = (int(xLeft)/image.width,int(yTop)/image.height)
                     objectDetected["bottomRightPercent"] = (int(xRight)/image.width,int(yBottom)/image.height)
                     objectDetected["confidence"] = float(conf)
+                    #Perform blindspot region detection
+                    for blindspot in cameraConfig["blindspots"]:
+                        if blindspot[0][0] < objectDetected["topLeftPercent"][0] and blindspot[0][1] < objectDetected["topLeftPercent"][1] and blindspot[1][0] > objectDetected["bottomRightPercent"][0] and blindspot[1][1] > objectDetected["bottomRightPercent"][1]:
+                            print(f"{detectedName} is in blindspot {blindspot}")
+                            objectDetected["withinBlindSpot"]=True
                     objectsDetected[detectedName].append(objectDetected)
 
-        #Compare objects detected to most recent frame from camera
-        if self.lastFrameDict[currentCameraName]["lastObjectsDetected"]:
-            previousObjects = self.lastFrameDict[currentCameraName]["lastObjectsDetected"]
-            for key in objectsDetected:
-                if key in previousObjects:
-                    for i, obj in enumerate(objectsDetected[key]):
+        for key in objectsDetected:
+            for i, obj in enumerate(objectsDetected[key]):
+                #Compare objects detected to most recent frame from camera
+                if self.lastFrameDict[currentCameraName]["lastObjectsDetected"]:
+                    previousObjects = self.lastFrameDict[currentCameraName]["lastObjectsDetected"]
+                    if key in previousObjects:
                         topLeftX_max = float(obj["topLeftPercent"][0])+float(self.configDict["objectBoundaryFuzzyMatch"])
                         topLeftX_min = float(obj["topLeftPercent"][0])-float(self.configDict["objectBoundaryFuzzyMatch"])
                         topLeftY_max = float(obj["topLeftPercent"][1])+float(self.configDict["objectBoundaryFuzzyMatch"])
@@ -129,12 +135,11 @@ class yolo_harness:
                         bottomRightY_min = float(obj["bottomRightPercent"][1])-float(self.configDict["objectBoundaryFuzzyMatch"])
                         for prevobj in previousObjects[key]:
                             if prevobj["topLeftPercent"][0] > topLeftX_min and prevobj["topLeftPercent"][0] < topLeftX_max and \
-                               prevobj["topLeftPercent"][1] > topLeftY_min and prevobj["topLeftPercent"][1] < topLeftY_max and \
-                               prevobj["bottomRightPercent"][0] > bottomRightX_min and prevobj["bottomRightPercent"][0] < bottomRightX_max and \
-                               prevobj["bottomRightPercent"][1] > bottomRightY_min and prevobj["bottomRightPercent"][1] < bottomRightY_max:
+                                prevobj["topLeftPercent"][1] > topLeftY_min and prevobj["topLeftPercent"][1] < topLeftY_max and \
+                                prevobj["bottomRightPercent"][0] > bottomRightX_min and prevobj["bottomRightPercent"][0] < bottomRightX_max and \
+                                prevobj["bottomRightPercent"][1] > bottomRightY_min and prevobj["bottomRightPercent"][1] < bottomRightY_max:
                                 # print(f"{key} already seen!")
                                 objectsDetected[key][i]["dejavu"]=True
-        #TODO: Add the blindspot regions
         self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
         print(json.dumps(objectsDetected, indent=1))
 
