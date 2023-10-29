@@ -86,10 +86,16 @@ class yolo_harness:
                 currentCamera=0
             currentCameraName = self.configDict["camera_sequence"][currentCamera]
             cameraConfig = self.configDict["cameras"][currentCameraName]
-            self.processCameraImage(currentCameraName, cameraConfig)
+            objectsDetected, image = self.detectImageObjects(currentCameraName, cameraConfig)
+            if objectsDetected != None:
+                self.processNotifications(image, objectsDetected)
+
             time.sleep(2)
 
-    def processCameraImage(self, currentCameraName, cameraConfig):
+    def processNotifications(self, image, objectsDetected):
+        print(json.dumps(objectsDetected,indent=1))
+
+    def detectImageObjects(self, currentCameraName, cameraConfig):
         image = self.download_image(cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
         if image == None:
             print(f"failed to download image from {cameraConfig['+url']}")
@@ -142,7 +148,7 @@ class yolo_harness:
                                 # print(f"{key} already seen!")
                                 objectsDetected[key][i]["dejavu"]=True
         self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
-        print(json.dumps(objectsDetected, indent=1))
+        return objectsDetected, image
 
     def download_image(self, url, username, password):
         buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
