@@ -47,14 +47,14 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            # "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
-            #              "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #             #  "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             }
+            "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
+                         "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                        #  "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+                         "user": config('CAM_USER'),
+                         "password": config('CAM_PASSWORD'),
+                         "maxSnapshotsToKeep": 150,
+                        }
         },
         "minConfidence": 0.65,
         # "minConfidence": 0.15,
@@ -129,22 +129,21 @@ class yolo_harness:
         # Save lastObjectsDetected to state TODO: Merge data at the object level!
         self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
 
-        # if len(interestsFlagged) > 0:
-        self.saveAndNotify(currentCameraName, image, objectsDetected)
+        if len(interestsFlagged) > 0:
+            self.saveAndNotify(currentCameraName, image, objectsDetected)
             
     def saveAndNotify(self, currentCameraName, image, objectsDetected):
-        # for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
-        #     label = f'{results.names[int(cls)]} {conf:.2f}'
-        #     annotator.box_label(box, label, color=colors(cls))
-        #TODO: display current image (annotator.im) as image0,  possibly downscale to a thumbnail size too
-        # im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
-        draw  = ImageDraw.Draw(image)
-        font  = ImageFont.truetype("Arial.ttf", 15, encoding="unic") #TODO: Scale font size to image resolution
+        txt = Image.new('RGBA', image.size, (255,255,255,0))
+        drawtxt = ImageDraw.Draw(txt)
+
+        scaleFactor = image.size[0]/720
+        font  = ImageFont.truetype("Arial.ttf", int(10*scaleFactor), encoding="unic") #TODO: Scale font size to image resolution
         for objectType in objectsDetected:
             for object in objectsDetected[objectType]:
-                draw.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100))
-                draw.text( object["topLeft"], f"{objectType} {round(object['confidence'],2)}", fill=(0,0,255,100), font=font)
-        image.save("/tmp/latest.jpg")
+                drawtxt.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100), width=int(10*scaleFactor))
+                drawtxt.text( object["topLeft"], f"{objectType} {round(object['confidence'],2)}", fill=(255,255,255,180), font=font)
+        combined = Image.alpha_composite(image, txt)   
+        combined.save("/tmp/latest.png","PNG")
 
 
     def detectImageObjects(self, currentCameraName, cameraConfig):
@@ -217,7 +216,7 @@ class yolo_harness:
                 buffer.write(chunk)
                 # print(downloaded/filesize)
             buffer.seek(0)
-            i = Image.open(io.BytesIO(buffer.read()))
+            i = Image.open(io.BytesIO(buffer.read())).convert("RGBA")
             # i.save(os.path.join(out_dir, 'image.jpg'), quality=85)
         else:
             print(r)
