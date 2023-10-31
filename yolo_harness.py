@@ -111,8 +111,8 @@ class yolo_harness:
                 self.interestsDict[currentCameraName][key]["lookbackQueue"] = [0]
         
             maxObjectCount=max(self.interestsDict[currentCameraName][key]["lookbackQueue"])
-            visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x] #Do not count objects within blindspot
-            # visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x and "dejavu" not in x] #Do not count objects within blindspot or seen in prior frame
+            # visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x] #Do not count objects within blindspot
+            visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x and "dejavu" not in x] #Do not count objects within blindspot or seen in prior frame
             if len(visibleObjectList) > maxObjectCount:
                 interestsFlagged.append(f"{len(visibleObjectList)} {key}{'s' if len(visibleObjectList) > 1 else ''}")
             
