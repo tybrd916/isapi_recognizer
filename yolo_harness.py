@@ -25,13 +25,13 @@ import json
 class yolo_harness:
     configDict = {
         "cameras": {
-            # "sideyard": {"blindspots": [],
-            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             },
+            "sideyard": {"blindspots": [],
+                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
+                         "user": config('CAM_USER'),
+                         "password": config('CAM_PASSWORD'),
+                         "maxSnapshotsToKeep": 150,
+                        },
             "randomtraffic": {"blindspots": [((0.0,0.5),(1.0,1.0))],
                          "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                         #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
@@ -40,21 +40,21 @@ class yolo_harness:
                          "password": "",
                          "maxSnapshotsToKeep": 150,
                         },
-            # "backyard": {"blindspots": [],
-            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             },
-            # "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
-            #              "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #             #  "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             }
+            "backyard": {"blindspots": [],
+                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
+                         "user": config('CAM_USER'),
+                         "password": config('CAM_PASSWORD'),
+                         "maxSnapshotsToKeep": 150,
+                        },
+            "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
+                        #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+                         "user": config('CAM_USER'),
+                         "password": config('CAM_PASSWORD'),
+                         "maxSnapshotsToKeep": 150,
+                        }
         },
         "minConfidence": 0.65,
         # "minConfidence": 0.15,
@@ -97,7 +97,7 @@ class yolo_harness:
             if objectsDetected != None:
                 self.filterNotifications(currentCameraName, image, objectsDetected)
 
-            time.sleep(20)
+            time.sleep(1)
 
     def filterNotifications(self, currentCameraName, image, objectsDetected):
 
@@ -129,8 +129,9 @@ class yolo_harness:
         # Save lastObjectsDetected to state TODO: Merge data at the object level!
         self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
 
-        # if len(interestsFlagged) > 0:
-        self.saveAndNotify(currentCameraName, image, objectsDetected)
+        if len(interestsFlagged) > 0:
+            print(f"{currentCameraName} - {interestsFlagged}")
+            self.saveAndNotify(currentCameraName, image, objectsDetected)
             
     def saveAndNotify(self, currentCameraName, image, objectsDetected):
         txt = Image.new('RGBA', image.size, (255,255,255,0))
@@ -146,8 +147,20 @@ class yolo_harness:
                     drawtxt.rectangle(xy=[tuple([image.size[0]*object["withinBlindSpot"][0][0],image.size[1]*object["withinBlindSpot"][0][1]]),tuple([image.size[0]*object["withinBlindSpot"][1][0],image.size[1]*object["withinBlindSpot"][1][1]])], outline=(0,0,0,100), width=int(10*scaleFactor))
                     drawtxt.text( tuple([image.size[0]*object["withinBlindSpot"][0][0],image.size[1]*object["withinBlindSpot"][0][1]]), f"blindspot", fill=(255,255,255,180), font=font)
                 else:
-                    drawtxt.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100), width=int(10*scaleFactor))
-                    drawtxt.text( object["topLeft"], f"{'*' if 'dejavu' in object else ''}{objectType} {round(object['confidence'],2)}", fill=(255,255,255,180), font=font)
+                    textStr=f"{'*' if 'dejavu' in object else ''}{objectType} {round(object['confidence'],2)}"
+                    textBoxSize=bbox=drawtxt.textbbox( (0,0), textStr, font=font)
+                    bbox=None
+                    textCoordinate=(0,0)
+                    if object["topLeft"][1] < 0.25*image.size[1]:
+                        #Put the label on the bottom
+                        textCoordinate=(object["topLeft"][0],object["bottomRight"][1]-textBoxSize[1])
+                    else:
+                        #Put the label on the top
+                        textCoordinate=(object["topLeft"][0],object["topLeft"][1]-textBoxSize[3])
+                    bbox=drawtxt.textbbox( textCoordinate, textStr, font=font)
+                    drawtxt.rectangle(bbox, fill=(0,0,255,100))
+                    drawtxt.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100), width=int(1*scaleFactor))
+                    drawtxt.text( textCoordinate, textStr, fill=(255,255,255,180), font=font)
         combined = Image.alpha_composite(image, txt)   
         combined.save("/tmp/latest.png","PNG")
 
