@@ -12,7 +12,7 @@
 import requests
 from requests.auth import HTTPDigestAuth
 import tempfile
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from decouple import config
 import io
 import sys
@@ -20,6 +20,7 @@ sys.path.insert(0, './yolov5')
 import torch
 import time
 import json
+# from yolov5.utils.plots import Annotator, colors
 
 class yolo_harness:
     configDict = {
@@ -31,14 +32,14 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            # "randomtraffic": {"blindspots": [((0.0,0.5),(1.0,1.0))],
-            #              "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #             #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
-            #              "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
-            #              "user": "",
-            #              "password": "",
-            #              "maxSnapshotsToKeep": 150,
-            #             },
+            "randomtraffic": {"blindspots": [((0.0,0.5),(1.0,1.0))],
+                         "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                        #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
+                         "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
+                         "user": "",
+                         "password": "",
+                         "maxSnapshotsToKeep": 150,
+                        },
             # "backyard": {"blindspots": [],
             #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
             #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
@@ -46,16 +47,17 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
-                         "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
-                         "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD'),
-                         "maxSnapshotsToKeep": 150,
-                        }
+            # "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
+            #              "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #             #  "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             }
         },
-        # "minConfidence": 0.65,
         "minConfidence": 0.65,
+        # "minConfidence": 0.15,
         "objectBoundaryFuzzyMatch": 0.05,
         "lookbackDepth": 5
         # "camera_sequence": ["driveway","backyard"]
@@ -93,11 +95,11 @@ class yolo_harness:
             cameraConfig = self.configDict["cameras"][currentCameraName]
             objectsDetected, image = self.detectImageObjects(currentCameraName, cameraConfig)
             if objectsDetected != None:
-                self.processNotifications(currentCameraName, image, objectsDetected)
+                self.filterNotifications(currentCameraName, image, objectsDetected)
 
-            time.sleep(3)
+            time.sleep(29)
 
-    def processNotifications(self, currentCameraName, image, objectsDetected):
+    def filterNotifications(self, currentCameraName, image, objectsDetected):
 
         if currentCameraName not in self.interestsDict:
             self.interestsDict[currentCameraName] = {}
@@ -124,11 +126,26 @@ class yolo_harness:
                 self.interestsDict[currentCameraName][key]["lookbackQueue"].pop(0)
             self.interestsDict[currentCameraName][key]["lookbackQueue"].append(len(objectsDetected[key]))
 
-        # print(json.dumps(self.interestsDict,indent=1))
-        print(json.dumps(interestsFlagged,indent=1))
-
         # Save lastObjectsDetected to state TODO: Merge data at the object level!
         self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
+
+        # if len(interestsFlagged) > 0:
+        self.saveAndNotify(currentCameraName, image, objectsDetected)
+            
+    def saveAndNotify(self, currentCameraName, image, objectsDetected):
+        # for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
+        #     label = f'{results.names[int(cls)]} {conf:.2f}'
+        #     annotator.box_label(box, label, color=colors(cls))
+        #TODO: display current image (annotator.im) as image0,  possibly downscale to a thumbnail size too
+        # im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
+        draw  = ImageDraw.Draw(image)
+        font  = ImageFont.truetype("Arial.ttf", 15, encoding="unic") #TODO: Scale font size to image resolution
+        for objectType in objectsDetected:
+            for object in objectsDetected[objectType]:
+                draw.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100))
+                draw.text( object["topLeft"], f"{objectType} {round(object['confidence'],2)}", fill=(0,0,255,100), font=font)
+        image.save("/tmp/latest.jpg")
+
 
     def detectImageObjects(self, currentCameraName, cameraConfig):
         image = self.download_image(cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
