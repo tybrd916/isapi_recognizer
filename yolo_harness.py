@@ -47,14 +47,14 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
-                         "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                        #  "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
-                         "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD'),
-                         "maxSnapshotsToKeep": 150,
-                        }
+            # "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
+            #              "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #             #  "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             }
         },
         "minConfidence": 0.65,
         # "minConfidence": 0.15,
@@ -97,7 +97,7 @@ class yolo_harness:
             if objectsDetected != None:
                 self.filterNotifications(currentCameraName, image, objectsDetected)
 
-            time.sleep(29)
+            time.sleep(20)
 
     def filterNotifications(self, currentCameraName, image, objectsDetected):
 
@@ -129,19 +129,25 @@ class yolo_harness:
         # Save lastObjectsDetected to state TODO: Merge data at the object level!
         self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
 
-        if len(interestsFlagged) > 0:
-            self.saveAndNotify(currentCameraName, image, objectsDetected)
+        # if len(interestsFlagged) > 0:
+        self.saveAndNotify(currentCameraName, image, objectsDetected)
             
     def saveAndNotify(self, currentCameraName, image, objectsDetected):
         txt = Image.new('RGBA', image.size, (255,255,255,0))
         drawtxt = ImageDraw.Draw(txt)
 
+        #TODO: Scale font size to image resolution
         scaleFactor = image.size[0]/720
-        font  = ImageFont.truetype("Arial.ttf", int(10*scaleFactor), encoding="unic") #TODO: Scale font size to image resolution
+        font  = ImageFont.truetype("Arial.ttf", int(10*scaleFactor), encoding="unic")
         for objectType in objectsDetected:
             for object in objectsDetected[objectType]:
-                drawtxt.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100), width=int(10*scaleFactor))
-                drawtxt.text( object["topLeft"], f"{objectType} {round(object['confidence'],2)}", fill=(255,255,255,180), font=font)
+                if "withinBlindSpot" in object:
+                    #Note multiply Blindspot percentage tuples by image size tuples
+                    drawtxt.rectangle(xy=[tuple([image.size[0]*object["withinBlindSpot"][0][0],image.size[1]*object["withinBlindSpot"][0][1]]),tuple([image.size[0]*object["withinBlindSpot"][1][0],image.size[1]*object["withinBlindSpot"][1][1]])], outline=(0,0,0,100), width=int(10*scaleFactor))
+                    drawtxt.text( tuple([image.size[0]*object["withinBlindSpot"][0][0],image.size[1]*object["withinBlindSpot"][0][1]]), f"blindspot", fill=(255,255,255,180), font=font)
+                else:
+                    drawtxt.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100), width=int(10*scaleFactor))
+                    drawtxt.text( object["topLeft"], f"{'*' if 'dejavu' in object else ''}{objectType} {round(object['confidence'],2)}", fill=(255,255,255,180), font=font)
         combined = Image.alpha_composite(image, txt)   
         combined.save("/tmp/latest.png","PNG")
 
@@ -152,7 +158,7 @@ class yolo_harness:
             print(f"failed to download image from {cameraConfig['url']}")
             return #avoid crash when no image is returned
         results = self.model(image)
-        print(results)
+        # print(results)
         if currentCameraName not in self.lastFrameDict:
             self.lastFrameDict[currentCameraName] = {}
             self.lastFrameDict[currentCameraName]["lastObjectsDetected"] = None
@@ -173,8 +179,7 @@ class yolo_harness:
                     #Perform blindspot region detection
                     for blindspot in cameraConfig["blindspots"]:
                         if blindspot[0][0] < objectDetected["topLeftPercent"][0] and blindspot[0][1] < objectDetected["topLeftPercent"][1] and blindspot[1][0] > objectDetected["bottomRightPercent"][0] and blindspot[1][1] > objectDetected["bottomRightPercent"][1]:
-                            print(f"{detectedName} is in blindspot {blindspot}")
-                            objectDetected["withinBlindSpot"]=True
+                            objectDetected["withinBlindSpot"]=blindspot
                     objectsDetected[detectedName].append(objectDetected)
 
         for key in objectsDetected:
