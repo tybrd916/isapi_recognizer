@@ -31,14 +31,14 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            "randomtraffic": {"blindspots": [((0.0,0.5),(1.0,1.0))],
-                         "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                        #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
-                         "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
-                         "user": "",
-                         "password": "",
-                         "maxSnapshotsToKeep": 150,
-                        },
+            # "randomtraffic": {"blindspots": [((0.0,0.5),(1.0,1.0))],
+            #              "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #             #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
+            #              "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
+            #              "user": "",
+            #              "password": "",
+            #              "maxSnapshotsToKeep": 150,
+            #             },
             # "backyard": {"blindspots": [],
             #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
             #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
@@ -46,16 +46,18 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            # "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
-            #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             }
+            "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
+                         "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+                         "user": config('CAM_USER'),
+                         "password": config('CAM_PASSWORD'),
+                         "maxSnapshotsToKeep": 150,
+                        }
         },
+        # "minConfidence": 0.65,
         "minConfidence": 0.65,
-        "objectBoundaryFuzzyMatch": 0.1,
+        "objectBoundaryFuzzyMatch": 0.05,
+        "lookbackDepth": 5
         # "camera_sequence": ["driveway","backyard"]
     }
     lastFrameDict = {
@@ -93,7 +95,7 @@ class yolo_harness:
             if objectsDetected != None:
                 self.processNotifications(currentCameraName, image, objectsDetected)
 
-            time.sleep(2)
+            time.sleep(3)
 
     def processNotifications(self, currentCameraName, image, objectsDetected):
 
@@ -114,7 +116,9 @@ class yolo_harness:
             
             #Update Lookback count list
             lookbackDepth = 30
-            if("lookbackDepth" in self.configDict["cameras"][currentCameraName]):
+            if "lookbackDepth" in self.configDict:
+                lookbackDepth=self.configDict["lookbackDepth"]
+            if "lookbackDepth" in self.configDict["cameras"][currentCameraName]:
                 lookbackDepth=self.configDict["cameras"][currentCameraName]["lookbackDepth"]
             if len(self.interestsDict[currentCameraName][key]["lookbackQueue"]) >= lookbackDepth:
                 self.interestsDict[currentCameraName][key]["lookbackQueue"].pop(0)
