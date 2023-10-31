@@ -61,6 +61,9 @@ class yolo_harness:
     lastFrameDict = {
         #Store information about the objects in most recent frame (and lookback period too) for each camera name "key": (and persist/reload from disk for when program restarts)
     }
+    interestsDict = {
+        #Store information lookback queue for camera/object-class
+    }
 
     def __init__(self):
         # Initialize camera_sequence if not already configured
@@ -88,17 +91,45 @@ class yolo_harness:
             cameraConfig = self.configDict["cameras"][currentCameraName]
             objectsDetected, image = self.detectImageObjects(currentCameraName, cameraConfig)
             if objectsDetected != None:
-                self.processNotifications(image, objectsDetected)
+                self.processNotifications(currentCameraName, image, objectsDetected)
 
             time.sleep(2)
 
-    def processNotifications(self, image, objectsDetected):
-        print(json.dumps(objectsDetected,indent=1))
+    def processNotifications(self, currentCameraName, image, objectsDetected):
+
+        if currentCameraName not in self.interestsDict:
+            self.interestsDict[currentCameraName] = {}
+
+        interestsFlagged = []
+        for key in objectsDetected:
+            if key not in self.interestsDict[currentCameraName]:
+                self.interestsDict[currentCameraName][key] = {}
+                self.interestsDict[currentCameraName][key]["lookbackQueue"] = [0]
+        
+            maxObjectCount=max(self.interestsDict[currentCameraName][key]["lookbackQueue"])
+            visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x] #Do not count objects within blindspot
+            # visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x and "dejavu" not in x] #Do not count objects within blindspot or seen in prior frame
+            if len(visibleObjectList) > maxObjectCount:
+                interestsFlagged.append(f"{len(visibleObjectList)} {key}{'s' if len(visibleObjectList) > 1 else ''}")
+            
+            #Update Lookback count list
+            lookbackDepth = 30
+            if("lookbackDepth" in self.configDict["cameras"][currentCameraName]):
+                lookbackDepth=self.configDict["cameras"][currentCameraName]["lookbackDepth"]
+            if len(self.interestsDict[currentCameraName][key]["lookbackQueue"]) >= lookbackDepth:
+                self.interestsDict[currentCameraName][key]["lookbackQueue"].pop(0)
+            self.interestsDict[currentCameraName][key]["lookbackQueue"].append(len(objectsDetected[key]))
+
+        # print(json.dumps(self.interestsDict,indent=1))
+        print(json.dumps(interestsFlagged,indent=1))
+
+        # Save lastObjectsDetected to state TODO: Merge data at the object level!
+        self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
 
     def detectImageObjects(self, currentCameraName, cameraConfig):
         image = self.download_image(cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
         if image == None:
-            print(f"failed to download image from {cameraConfig['+url']}")
+            print(f"failed to download image from {cameraConfig['url']}")
             return #avoid crash when no image is returned
         results = self.model(image)
         print(results)
@@ -147,7 +178,6 @@ class yolo_harness:
                                 prevobj["bottomRightPercent"][1] > bottomRightY_min and prevobj["bottomRightPercent"][1] < bottomRightY_max:
                                 # print(f"{key} already seen!")
                                 objectsDetected[key][i]["dejavu"]=True
-        self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
         return objectsDetected, image
 
     def download_image(self, url, username, password):
