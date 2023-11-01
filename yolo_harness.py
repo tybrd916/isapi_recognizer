@@ -15,10 +15,13 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont
 from decouple import config
 import io
+import glob
+import os
 import sys
 sys.path.insert(0, './yolov5')
 import torch
 import time
+import datetime
 import json
 # from yolov5.utils.plots import Annotator, colors
 
@@ -35,14 +38,14 @@ def timer_func(func):
 class yolo_harness:
     configDict = {
         "cameras": {
-            "sideyard": {"blindspots": [],
+            "sideyard": {"cameraGroups": {"driveway":{"blindspots": []}},
                          "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
                          "user": config('CAM_USER'),
                          "password": config('CAM_PASSWORD'),
                          "maxSnapshotsToKeep": 150,
                         },
-            "randomtraffic": {"blindspots": [((0.0,0.5),(1.0,1.0))],
+            "randomtraffic": {"cameraGroups": {"everett1":{"blindspots": [((0.0,0.0),(1.0,0.4))]},"everett2":{"blindspots": [((0.0,0.0),(0.2,0.4))]}},
                          "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                         #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
                          "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
@@ -50,14 +53,14 @@ class yolo_harness:
                          "password": "",
                          "maxSnapshotsToKeep": 150,
                         },
-            "backyard": {"blindspots": [],
+            "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
                          "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
                          "user": config('CAM_USER'),
                          "password": config('CAM_PASSWORD'),
                          "maxSnapshotsToKeep": 150,
                         },
-            "driveway": {"blindspots": [((0.0,0.2),(1.0,0.2))],
+            "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
                         #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
@@ -69,7 +72,10 @@ class yolo_harness:
         "minConfidence": 0.65,
         # "minConfidence": 0.15,
         "objectBoundaryFuzzyMatch": 0.05,
-        "lookbackDepth": 5
+        "lookbackDepth": 5,
+        "maximumSnapshots": 200,
+        "maximumSnapshots": 4,
+        "saveDirectoryPath": "/tmp/yolo_cams/"
         # "camera_sequence": ["driveway","backyard"]
     }
     lastFrameDict = {
@@ -90,7 +96,6 @@ class yolo_harness:
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
 
         self.model.conf = float(self.configDict["minConfidence"])
-        self.maximumSnapshots = 150
         self.cameraLoop()
 
     def cameraLoop(self):
@@ -105,24 +110,29 @@ class yolo_harness:
             cameraConfig = self.configDict["cameras"][currentCameraName]
             objectsDetected, image = self.detectImageObjects(currentCameraName, cameraConfig)
             if objectsDetected != None:
-                self.filterNotifications(currentCameraName, image, objectsDetected)
+                for cameraGroup in cameraConfig["cameraGroups"]:
+                    # print(cameraGroup)
+                    self.filterNotifications(cameraGroup, currentCameraName, image, objectsDetected)
 
-            time.sleep(1)
+            # time.sleep(1)
 
-    def filterNotifications(self, currentCameraName, image, objectsDetected):
+    def filterNotifications(self, cameraGroup, currentCameraName, image, objectsDetected):
 
-        if currentCameraName not in self.interestsDict:
-            self.interestsDict[currentCameraName] = {}
+        if cameraGroup not in self.interestsDict:
+            self.interestsDict[cameraGroup] = {}
+
+        if currentCameraName not in self.interestsDict[cameraGroup]:
+            self.interestsDict[cameraGroup][currentCameraName] = {}
 
         interestsFlagged = []
         for key in objectsDetected:
-            if key not in self.interestsDict[currentCameraName]:
-                self.interestsDict[currentCameraName][key] = {}
-                self.interestsDict[currentCameraName][key]["lookbackQueue"] = [0]
+            if key not in self.interestsDict[cameraGroup][currentCameraName]:
+                self.interestsDict[cameraGroup][currentCameraName][key] = {}
+                self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"] = [0]
         
-            maxObjectCount=max(self.interestsDict[currentCameraName][key]["lookbackQueue"])
-            # visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x] #Do not count objects within blindspot
-            visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x and "dejavu" not in x] #Do not count objects within blindspot or seen in prior frame
+            maxObjectCount=max(self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"])
+            # visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x[cameraGroup]] #Do not count objects within cameraGroup's blindspot
+            visibleObjectList=[1 for x in objectsDetected[key] if "withinBlindSpot" not in x[cameraGroup] and "dejavu" not in x[cameraGroup]] #Do not count objects within cameraGroup's blindspot or seen in prior frame
             if len(visibleObjectList) > maxObjectCount:
                 interestsFlagged.append(f"{len(visibleObjectList)} {key}{'s' if len(visibleObjectList) > 1 else ''}")
             
@@ -132,19 +142,19 @@ class yolo_harness:
                 lookbackDepth=self.configDict["lookbackDepth"]
             if "lookbackDepth" in self.configDict["cameras"][currentCameraName]:
                 lookbackDepth=self.configDict["cameras"][currentCameraName]["lookbackDepth"]
-            if len(self.interestsDict[currentCameraName][key]["lookbackQueue"]) >= lookbackDepth:
-                self.interestsDict[currentCameraName][key]["lookbackQueue"].pop(0)
-            self.interestsDict[currentCameraName][key]["lookbackQueue"].append(len(objectsDetected[key]))
+            if len(self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"]) >= lookbackDepth:
+                self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"].pop(0)
+            self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"].append(len(objectsDetected[key]))
 
         # Save lastObjectsDetected to state TODO: Merge data at the object level!
         self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
 
         if len(interestsFlagged) > 0:
-            print(f"{currentCameraName} - {interestsFlagged}")
-            self.saveAndNotify(currentCameraName, image, objectsDetected)
+            print(f"{cameraGroup} - {currentCameraName} - {interestsFlagged}")
+            self.saveAndNotify(cameraGroup, currentCameraName, image, objectsDetected, interestsFlagged)
             
     @timer_func
-    def saveAndNotify(self, currentCameraName, image, objectsDetected):
+    def saveAndNotify(self, cameraGroup, currentCameraName, image, objectsDetected, interestsFlagged):
         txt = Image.new('RGBA', image.size, (255,255,255,0))
         drawtxt = ImageDraw.Draw(txt)
 
@@ -153,12 +163,12 @@ class yolo_harness:
         font  = ImageFont.truetype("Arial.ttf", int(10*scaleFactor), encoding="unic")
         for objectType in objectsDetected:
             for object in objectsDetected[objectType]:
-                if "withinBlindSpot" in object:
+                if "withinBlindSpot" in object[cameraGroup]:
                     #Note multiply Blindspot percentage tuples by image size tuples
-                    drawtxt.rectangle(xy=[tuple([image.size[0]*object["withinBlindSpot"][0][0],image.size[1]*object["withinBlindSpot"][0][1]]),tuple([image.size[0]*object["withinBlindSpot"][1][0],image.size[1]*object["withinBlindSpot"][1][1]])], outline=(0,0,0,100), width=int(10*scaleFactor))
-                    drawtxt.text( tuple([image.size[0]*object["withinBlindSpot"][0][0],image.size[1]*object["withinBlindSpot"][0][1]]), f"blindspot", fill=(255,255,255,180), font=font)
+                    drawtxt.rectangle(xy=[tuple([image.size[0]*object[cameraGroup]["withinBlindSpot"][0][0],image.size[1]*object[cameraGroup]["withinBlindSpot"][0][1]]),tuple([image.size[0]*object[cameraGroup]["withinBlindSpot"][1][0],image.size[1]*object[cameraGroup]["withinBlindSpot"][1][1]])], outline=(0,0,0,100), width=int(10*scaleFactor))
+                    drawtxt.text( tuple([image.size[0]*object[cameraGroup]["withinBlindSpot"][0][0],image.size[1]*object[cameraGroup]["withinBlindSpot"][0][1]]), f"blindspot", fill=(255,255,255,180), font=font)
                 else:
-                    textStr=f"{'*' if 'dejavu' in object else ''}{objectType} {round(object['confidence'],2)}"
+                    textStr=f"{'*' if 'dejavu' in object[cameraGroup] else ''}{objectType} {round(object['confidence'],2)}"
                     textBoxSize=bbox=drawtxt.textbbox( (0,0), textStr, font=font)
                     bbox=None
                     textCoordinate=(0,0)
@@ -173,9 +183,26 @@ class yolo_harness:
                     drawtxt.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100), width=int(1*scaleFactor))
                     drawtxt.text( textCoordinate, textStr, fill=(255,255,255,180), font=font)
 
+        #Save image to filesystem
+        dirName=f"{self.configDict['saveDirectoryPath']}/{cameraGroup}/"
+        fileName=f"{datetime.datetime.now()} {currentCameraName} {interestsFlagged}"
+        # image.save(f"{dirName}/{fileName} original.png","PNG", compress_level=1)
+        # txt.save(f"{dirName}/{fileName} overlay.png","PNG", compress_level=1)
+        self.clearOldestSnapshots(dirName)
         combined = Image.alpha_composite(image, txt)   
-        combined.save("/tmp/latest.png","PNG")
+        combined.save(f"{dirName}/{fileName}.png","PNG", compress_level=1)
 
+    def clearOldestSnapshots(self,dirname="snapshots"):
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        snapshotList = glob.glob(dirname+"/*.png")
+        numSnapShotsToDelete = len(snapshotList) - int(self.configDict["maximumSnapshots"])
+        for snapshotPath in sorted(snapshotList):
+            if numSnapShotsToDelete > 0:
+                os.remove(snapshotPath)
+                numSnapShotsToDelete=numSnapShotsToDelete-1
+            else:
+                break
 
     def detectImageObjects(self, currentCameraName, cameraConfig):
         image = self.download_image(cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
@@ -202,9 +229,11 @@ class yolo_harness:
                     objectDetected["bottomRightPercent"] = (int(xRight)/image.width,int(yBottom)/image.height)
                     objectDetected["confidence"] = float(conf)
                     #Perform blindspot region detection
-                    for blindspot in cameraConfig["blindspots"]:
-                        if blindspot[0][0] < objectDetected["topLeftPercent"][0] and blindspot[0][1] < objectDetected["topLeftPercent"][1] and blindspot[1][0] > objectDetected["bottomRightPercent"][0] and blindspot[1][1] > objectDetected["bottomRightPercent"][1]:
-                            objectDetected["withinBlindSpot"]=blindspot
+                    for cameraGroup in cameraConfig["cameraGroups"]:
+                        objectDetected[cameraGroup] = {}
+                        for blindspot in cameraConfig["cameraGroups"][cameraGroup]["blindspots"]:
+                            if blindspot[0][0] < objectDetected["topLeftPercent"][0] and blindspot[0][1] < objectDetected["topLeftPercent"][1] and blindspot[1][0] > objectDetected["bottomRightPercent"][0] and blindspot[1][1] > objectDetected["bottomRightPercent"][1]:
+                                objectDetected[cameraGroup]["withinBlindSpot"]=blindspot
                     objectsDetected[detectedName].append(objectDetected)
 
         for key in objectsDetected:
@@ -227,7 +256,7 @@ class yolo_harness:
                                 prevobj["bottomRightPercent"][0] > bottomRightX_min and prevobj["bottomRightPercent"][0] < bottomRightX_max and \
                                 prevobj["bottomRightPercent"][1] > bottomRightY_min and prevobj["bottomRightPercent"][1] < bottomRightY_max:
                                 # print(f"{key} already seen!")
-                                objectsDetected[key][i]["dejavu"]=True
+                                objectsDetected[key][i][cameraGroup]["dejavu"]=True
         return objectsDetected, image
 
     def download_image(self, url, username, password):
