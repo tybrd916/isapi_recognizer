@@ -22,6 +22,16 @@ import time
 import json
 # from yolov5.utils.plots import Annotator, colors
 
+def timer_func(func): 
+    # This function shows the execution time of  
+    # the function object passed 
+    def wrap_func(*args, **kwargs): 
+        t1 = time.process_time()
+        result = func(*args, **kwargs) 
+        t2 = time.process_time()
+        print(f'Function {func.__name__!r} executed in {(t2-t1):.4f}s') 
+        return result 
+    return wrap_func  
 class yolo_harness:
     configDict = {
         "cameras": {
@@ -133,6 +143,7 @@ class yolo_harness:
             print(f"{currentCameraName} - {interestsFlagged}")
             self.saveAndNotify(currentCameraName, image, objectsDetected)
             
+    @timer_func
     def saveAndNotify(self, currentCameraName, image, objectsDetected):
         txt = Image.new('RGBA', image.size, (255,255,255,0))
         drawtxt = ImageDraw.Draw(txt)
@@ -161,6 +172,7 @@ class yolo_harness:
                     drawtxt.rectangle(bbox, fill=(0,0,255,100))
                     drawtxt.rectangle(xy=[object["topLeft"],object["bottomRight"]], outline=(0,0,255,100), width=int(1*scaleFactor))
                     drawtxt.text( textCoordinate, textStr, fill=(255,255,255,180), font=font)
+
         combined = Image.alpha_composite(image, txt)   
         combined.save("/tmp/latest.png","PNG")
 
