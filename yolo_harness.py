@@ -1,5 +1,7 @@
 # Scan any HTTP camera source still image
-#  TODO: Add getting still images from RTSP streams since one of Ted's camera's doesn't give HTTP still image (https://github.com/Cacsjep/pyrtsputils/blob/main/snapshot_generator.py)
+#  TODO: Add getting still images from RTSP streams since one of Ted's camera's doesn't give HTTP still image
+#  - (https://github.com/Cacsjep/pyrtsputils/blob/main/snapshot_generator.py)
+#  - rtsp://username:password@8.0.0.41:554/Streaming/Channels/102
 #  Include option for HTTP Auth parameters being passed securely
 # Parse photos in camera specific subdirectories
 #  Configurable via set-up file with camera URL/credentials, directory name
@@ -15,6 +17,7 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont
 from decouple import config
 import io
+import av
 import glob
 import os
 import sys
@@ -23,6 +26,7 @@ import torch
 import time
 import datetime
 import json
+import re
 # from yolov5.utils.plots import Annotator, colors
 
 def timer_func(func): 
@@ -38,39 +42,40 @@ def timer_func(func):
 class yolo_harness:
     configDict = {
         "cameras": {
-            "sideyard": {"cameraGroups": {"driveway":{"blindspots": []}},
-                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
-                         "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD'),
-                         "maxSnapshotsToKeep": 150,
-                        },
-            "randomtraffic": {"cameraGroups": {"everett1":{"blindspots": [((0.0,0.0),(1.0,0.4))]},"everett2":{"blindspots": [((0.0,0.0),(0.2,0.4))]}},
-                         "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                        #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
-                         "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
-                         "user": "",
-                         "password": "",
-                         "maxSnapshotsToKeep": 150,
-                        },
-            "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
-                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
-                         "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD'),
-                         "maxSnapshotsToKeep": 150,
-                        },
+            # "sideyard": {"cameraGroups": {"driveway":{"blindspots": []}},
+            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             },
+            # "randomtraffic": {"cameraGroups": {"everett1":{"blindspots": [((0.0,0.0),(1.0,0.4))]},"everett2":{"blindspots": [((0.0,0.0),(0.2,0.4))]}},
+            #              "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #             #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
+            #              "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
+            #              "user": "",
+            #              "password": "",
+            #              "maxSnapshotsToKeep": 150,
+            #             },
+            # "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
+            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             },
             "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
                         #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+                        #  "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+                         "url": "rtsp://8.0.0.41:554/Streaming/Channels/102",
                          "user": config('CAM_USER'),
                          "password": config('CAM_PASSWORD'),
                          "maxSnapshotsToKeep": 150,
                         }
         },
-        "minConfidence": 0.65,
-        # "minConfidence": 0.15,
+        # "minConfidence": 0.65,
+        "minConfidence": 0.15,
         "objectBoundaryFuzzyMatch": 0.05,
         "lookbackDepth": 5,
         "maximumSnapshots": 200,
@@ -83,6 +88,9 @@ class yolo_harness:
     }
     interestsDict = {
         #Store information lookback queue for camera/object-class
+    }
+    videoStreamsDict = {
+
     }
 
     def __init__(self):
@@ -205,7 +213,7 @@ class yolo_harness:
                 break
 
     def detectImageObjects(self, currentCameraName, cameraConfig):
-        image = self.download_image(cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
+        image = self.download_image(currentCameraName, cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
         if image == None:
             print(f"failed to download image from {cameraConfig['url']}")
             return #avoid crash when no image is returned
@@ -259,7 +267,10 @@ class yolo_harness:
                                 objectsDetected[key][i][cameraGroup]["dejavu"]=True
         return objectsDetected, image
 
-    def download_image(self, url, username, password):
+    @timer_func
+    def download_image(self, cameraName, url, username, password):
+        if re.match("^rtsp://", url):
+            return self.download_rtsp_image(cameraName, url, username, password)
         buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
         i = None
         r = None
@@ -281,5 +292,28 @@ class yolo_harness:
             print(r)
         buffer.close()
         return i
+    
+    def download_rtsp_image(self, cameraName, url, username, password):
+        if username != "" and password != "":
+            url = re.sub("^rtsp://",f"rtsp://{username}:{password}@", url)
+        # print(f' Try to connect to {url}')
+        # Connect to RTSP URL
+        if cameraName in self.videoStreamsDict:
+            video = self.videoStreamsDict[cameraName]
+        else:
+            video = av.open(url, 'r')
+            self.videoStreamsDict[cameraName] = video
+        # Iter over Package to get an frame
+        i = None
+        for packet in video.demux():
+            # When frame is decoded
+            for frame in packet.decode():
+                # Save Frame into JPEG
+                if hasattr(frame, 'to_image') and callable(frame.to_image):
+                    i = frame.to_image().convert("RGBA")
+                    i.save(f"{self.configDict['saveDirectoryPath']}/tyler.png")
+                    # Return because we just need one frame
+                    return i
+        print(f"download_rtsp_image did not find an image for {url}")
 
 yh = yolo_harness()
