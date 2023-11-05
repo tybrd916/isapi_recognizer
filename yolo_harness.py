@@ -82,36 +82,36 @@ class yolo_harness:
             #              "password": "",
             #              "maxSnapshotsToKeep": 150,
             #             },
-            # "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
-            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             },
-            # "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
-            #             #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             },
-            "backyard_rtsp": {"cameraGroups": {"rtsp":{"blindspots": []}},
+            "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
                          "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "rtsp://8.0.0.41:554/Streaming/Channels/301",
-                         "user": config('RTSP_USER'),
-                         "password": config('RTSP_PASSWORD'),
+                         "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
+                         "user": config('CAM_USER'),
+                         "password": config('CAM_PASSWORD'),
                          "maxSnapshotsToKeep": 150,
                         },
-            "driveway_rtsp": {"cameraGroups": {"rtsp":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
+            "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
                         #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "rtsp://8.0.0.41:554/Streaming/Channels/102",
-                         "user": config('RTSP_USER'),
-                         "password": config('RTSP_PASSWORD'),
+                         "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+                         "user": config('CAM_USER'),
+                         "password": config('CAM_PASSWORD'),
                          "maxSnapshotsToKeep": 150,
-                        }
+                        },
+            # "backyard_rtsp": {"cameraGroups": {"rtsp":{"blindspots": []}},
+            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "rtsp://8.0.0.41:554/Streaming/Channels/302",
+            #              "user": config('RTSP_USER'),
+            #              "password": config('RTSP_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             },
+            # "driveway_rtsp": {"cameraGroups": {"rtsp":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
+            #             #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "rtsp://8.0.0.41:554/Streaming/Channels/102",
+            #              "user": config('RTSP_USER'),
+            #              "password": config('RTSP_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             }
         },
         # "minConfidence": 0.65,
         "minConfidence": 0.15,
@@ -326,7 +326,7 @@ class yolo_harness:
             # buffer.seek(0)
             # i = Image.open(io.BytesIO(buffer.read())).convert("RGBA")
             i = Image.open(io.BytesIO(r.raw.read())).convert("RGBA")
-            # i.save(os.path.join(out_dir, 'image.jpg'), quality=85)
+            i.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png", compress_level=1)
         else:
             print(r)
         # buffer.close()
@@ -358,7 +358,7 @@ class yolo_harness:
             print(f"{cameraName} download_rtsp_image failed", error)
             return
         pil_image = Image.fromarray(color_converted).convert("RGBA")
-        # pil_image.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png")
+        # pil_image.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png", compress_level=1)
         return pil_image
         # Iter over Package to get an frame
         # i = None
