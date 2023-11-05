@@ -97,14 +97,14 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
+            "backyard_rtsp": {"cameraGroups": {"rtsp":{"blindspots": []}},
                          "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "rtsp://8.0.0.41:554/Streaming/Channels/302",
+                         "url": "rtsp://8.0.0.41:554/Streaming/Channels/301",
                          "user": config('RTSP_USER'),
                          "password": config('RTSP_PASSWORD'),
                          "maxSnapshotsToKeep": 150,
                         },
-            "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
+            "driveway_rtsp": {"cameraGroups": {"rtsp":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
                         #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "url": "rtsp://8.0.0.41:554/Streaming/Channels/102",
@@ -254,7 +254,6 @@ class yolo_harness:
     def detectImageObjects(self, currentCameraName, cameraConfig):
         image = self.download_image(currentCameraName, cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
         if image == None:
-            print(f"failed to download image from {cameraConfig['url']}")
             return None, None #avoid crash when no image is returned
         results = self.model(image)
         # print(results)
@@ -355,7 +354,8 @@ class yolo_harness:
         frame = video.read()
         try:
             color_converted = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
-        except:
+        except Exception as error:
+            print(f"{cameraName} download_rtsp_image failed", error)
             return
         pil_image = Image.fromarray(color_converted).convert("RGBA")
         # pil_image.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png")
