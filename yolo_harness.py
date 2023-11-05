@@ -17,7 +17,7 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont
 from decouple import config
 import io
-import av
+import cv2
 import glob
 import os
 import sys
@@ -27,6 +27,7 @@ import time
 import datetime
 import json
 import re
+import queue, threading
 # from yolov5.utils.plots import Annotator, colors
 
 def timer_func(func): 
@@ -38,7 +39,31 @@ def timer_func(func):
         t2 = time.process_time()
         print(f'Function {func.__name__!r} executed in {(t2-t1):.4f}s') 
         return result 
-    return wrap_func  
+    return wrap_func
+
+# bufferless VideoCapture
+class VideoCapture:
+    def __init__(self, name):
+        self.cap = cv2.VideoCapture(name)
+        self.lock = threading.Lock()
+        self.t = threading.Thread(target=self._reader)
+        self.t.daemon = True
+        self.t.start()
+
+    # grab frames as soon as they are available
+    def _reader(self):
+        while True:
+            with self.lock:
+                ret = self.cap.grab()
+            if not ret:
+                break
+
+    # retrieve latest frame
+    def read(self):
+        with self.lock:
+            _, frame = self.cap.retrieve()
+        return frame
+
 class yolo_harness:
     configDict = {
         "cameras": {
@@ -64,13 +89,27 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
+            # "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
+            #             #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             },
+            "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
+                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                         "url": "rtsp://8.0.0.41:554/Streaming/Channels/302",
+                         "user": config('RTSP_USER'),
+                         "password": config('RTSP_PASSWORD'),
+                         "maxSnapshotsToKeep": 150,
+                        },
             "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
                         #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
                          "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                        #  "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
                          "url": "rtsp://8.0.0.41:554/Streaming/Channels/102",
-                         "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD'),
+                         "user": config('RTSP_USER'),
+                         "password": config('RTSP_PASSWORD'),
                          "maxSnapshotsToKeep": 150,
                         }
         },
@@ -216,7 +255,7 @@ class yolo_harness:
         image = self.download_image(currentCameraName, cameraConfig["url"], cameraConfig["user"], cameraConfig["password"])
         if image == None:
             print(f"failed to download image from {cameraConfig['url']}")
-            return #avoid crash when no image is returned
+            return None, None #avoid crash when no image is returned
         results = self.model(image)
         # print(results)
         if currentCameraName not in self.lastFrameDict:
@@ -271,28 +310,35 @@ class yolo_harness:
     def download_image(self, cameraName, url, username, password):
         if re.match("^rtsp://", url):
             return self.download_rtsp_image(cameraName, url, username, password)
-        buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
+        # buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
         i = None
         r = None
         if username == "" or password == "":
             r = requests.get(url, stream=True)    
         else:
-            r = requests.get(url, auth=HTTPDigestAuth(username, password), stream=True)
+            r = self.requests_get(url, auth=HTTPDigestAuth(username, password), stream=True)
         if r.status_code == 200:
             downloaded = 0
-            filesize = int(r.headers['content-length'])
-            for chunk in r.iter_content(chunk_size=1024):
-                downloaded += len(chunk)
-                buffer.write(chunk)
-                # print(downloaded/filesize)
-            buffer.seek(0)
-            i = Image.open(io.BytesIO(buffer.read())).convert("RGBA")
+            # filesize = int(r.headers['content-length'])
+            # for chunk in r.iter_content(chunk_size=1024):
+            #     downloaded += len(chunk)
+            #     buffer.write(chunk)
+            #     # print(downloaded/filesize)
+            # buffer.seek(0)
+            # i = Image.open(io.BytesIO(buffer.read())).convert("RGBA")
+            i = Image.open(io.BytesIO(r.raw.read())).convert("RGBA")
             # i.save(os.path.join(out_dir, 'image.jpg'), quality=85)
         else:
             print(r)
-        buffer.close()
+        # buffer.close()
         return i
     
+    @timer_func
+    def requests_get(self, url, auth, stream):
+        return requests.get(url, auth=auth, stream=stream)
+
+    # Idea from https://stackoverflow.com/a/54755738 to always read the latest from from RTSP stream
+
     def download_rtsp_image(self, cameraName, url, username, password):
         if username != "" and password != "":
             url = re.sub("^rtsp://",f"rtsp://{username}:{password}@", url)
@@ -301,19 +347,30 @@ class yolo_harness:
         if cameraName in self.videoStreamsDict:
             video = self.videoStreamsDict[cameraName]
         else:
-            video = av.open(url, 'r')
+            # video = av.open(url, 'r')
+            video = VideoCapture(url)
             self.videoStreamsDict[cameraName] = video
+            print(f"starting video stream {cameraName}")
+            time.sleep(2)
+        frame = video.read()
+        try:
+            color_converted = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+        except:
+            return
+        pil_image = Image.fromarray(color_converted).convert("RGBA")
+        # pil_image.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png")
+        return pil_image
         # Iter over Package to get an frame
-        i = None
-        for packet in video.demux():
-            # When frame is decoded
-            for frame in packet.decode():
-                # Save Frame into JPEG
-                if hasattr(frame, 'to_image') and callable(frame.to_image):
-                    i = frame.to_image().convert("RGBA")
-                    i.save(f"{self.configDict['saveDirectoryPath']}/tyler.png")
-                    # Return because we just need one frame
-                    return i
+        # i = None
+        # for packet in video.demux():
+        #     # When frame is decoded
+        #     for frame in packet.decode():
+        #         # Save Frame into JPEG
+        #         if hasattr(frame, 'to_image') and callable(frame.to_image):
+        #             i = frame.to_image().convert("RGBA")
+        #             # i.save(f"{self.configDict['saveDirectoryPath']}/tyler.png")
+        #             # Return because we just need one frame
+        #             return i
         print(f"download_rtsp_image did not find an image for {url}")
 
 yh = yolo_harness()
