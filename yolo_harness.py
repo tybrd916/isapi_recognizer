@@ -290,7 +290,8 @@ class yolo_harness:
         if r.status_code == 200:
             downloaded = 0
             i = Image.open(io.BytesIO(r.raw.read())).convert("RGBA")
-            i.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png", compress_level=1)
+            # DEBUG by saving unlabeled image to disk
+            # i.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png", compress_level=1)
         else:
             print(r)
         # buffer.close()
