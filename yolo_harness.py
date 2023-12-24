@@ -74,29 +74,29 @@ class yolo_harness:
             #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            # "randomtraffic": {"cameraGroups": {"everett1":{"blindspots": [((0.0,0.0),(1.0,0.4))]},"everett2":{"blindspots": [((0.0,0.0),(0.2,0.4))]}},
-            #              "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #             #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
-            #              "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
-            #              "user": "",
-            #              "password": "",
+            "randomtraffic": {"cameraGroups": {"everett1":{"blindspots": [((0.0,0.0),(1.0,0.4))]},"everett2":{"blindspots": [((0.0,0.0),(0.2,0.4))]}},
+                         "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+                        #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
+                         "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
+                         "user": "",
+                         "password": "",
+                         "maxSnapshotsToKeep": 150,
+                        },
+            # "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
+            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
             #              "maxSnapshotsToKeep": 150,
             #             },
-            "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
-                         "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
-                         "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD'),
-                         "maxSnapshotsToKeep": 150,
-                        },
-            "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
-                        #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                         "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
-                         "user": config('CAM_USER'),
-                         "password": config('CAM_PASSWORD'),
-                         "maxSnapshotsToKeep": 150,
-                        },
+            # "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
+            #             #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
+            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
+            #              "user": config('CAM_USER'),
+            #              "password": config('CAM_PASSWORD'),
+            #              "maxSnapshotsToKeep": 150,
+            #             },
             # "backyard_rtsp": {"cameraGroups": {"rtsp":{"blindspots": []}},
             #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
             #              "url": "rtsp://8.0.0.41:554/Streaming/Channels/302",
@@ -161,7 +161,7 @@ class yolo_harness:
                     # print(cameraGroup)
                     self.filterNotifications(cameraGroup, currentCameraName, image, objectsDetected)
 
-            # time.sleep(1)
+            time.sleep(1)
 
     def filterNotifications(self, cameraGroup, currentCameraName, image, objectsDetected):
 
@@ -205,9 +205,9 @@ class yolo_harness:
         txt = Image.new('RGBA', image.size, (255,255,255,0))
         drawtxt = ImageDraw.Draw(txt)
 
-        #TODO: Scale font size to image resolution
+        # Scale font size to image resolution
         scaleFactor = image.size[0]/720
-        font  = ImageFont.truetype("Arial.ttf", int(10*scaleFactor), encoding="unic")
+        font  = ImageFont.truetype("Arial.ttf", int(20*scaleFactor), encoding="unic")
         for objectType in objectsDetected:
             for object in objectsDetected[objectType]:
                 if "withinBlindSpot" in object[cameraGroup]:
@@ -318,13 +318,6 @@ class yolo_harness:
             r = self.requests_get(url, auth=HTTPDigestAuth(username, password), stream=True)
         if r.status_code == 200:
             downloaded = 0
-            # filesize = int(r.headers['content-length'])
-            # for chunk in r.iter_content(chunk_size=1024):
-            #     downloaded += len(chunk)
-            #     buffer.write(chunk)
-            #     # print(downloaded/filesize)
-            # buffer.seek(0)
-            # i = Image.open(io.BytesIO(buffer.read())).convert("RGBA")
             i = Image.open(io.BytesIO(r.raw.read())).convert("RGBA")
             i.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png", compress_level=1)
         else:
@@ -346,7 +339,6 @@ class yolo_harness:
         if cameraName in self.videoStreamsDict:
             video = self.videoStreamsDict[cameraName]
         else:
-            # video = av.open(url, 'r')
             video = VideoCapture(url)
             self.videoStreamsDict[cameraName] = video
             print(f"starting video stream {cameraName}")
@@ -358,19 +350,6 @@ class yolo_harness:
             print(f"{cameraName} download_rtsp_image failed", error)
             return
         pil_image = Image.fromarray(color_converted).convert("RGBA")
-        # pil_image.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png", compress_level=1)
         return pil_image
-        # Iter over Package to get an frame
-        # i = None
-        # for packet in video.demux():
-        #     # When frame is decoded
-        #     for frame in packet.decode():
-        #         # Save Frame into JPEG
-        #         if hasattr(frame, 'to_image') and callable(frame.to_image):
-        #             i = frame.to_image().convert("RGBA")
-        #             # i.save(f"{self.configDict['saveDirectoryPath']}/tyler.png")
-        #             # Return because we just need one frame
-        #             return i
-        print(f"download_rtsp_image did not find an image for {url}")
 
 yh = yolo_harness()
