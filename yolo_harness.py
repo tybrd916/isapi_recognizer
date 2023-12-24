@@ -86,7 +86,8 @@ class yolo_harness:
         "maximumSnapshots": 200,
         "maximumSnapshots": 4,
         "saveDirectoryPath": "/tmp/yolo_cams/",
-        "camera_sequence": ["randomtraffic"]
+        "camera_sequence": ["randomtraffic"],
+        "notifyUrl": "http://192.168.40.250:88/JSON?request=runevent&group=Driveway&name=Announce%20Driveway%20Motion"
     }
     lastFrameDict = {
         #Store information about the objects in most recent frame (and lookback period too) for each camera name "key": (and persist/reload from disk for when program restarts)
