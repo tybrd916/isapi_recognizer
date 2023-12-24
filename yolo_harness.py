@@ -67,51 +67,13 @@ class VideoCapture:
 class yolo_harness:
     configDict = {
         "cameras": {
-            # "sideyard": {"cameraGroups": {"driveway":{"blindspots": []}},
-            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.5/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             },
             "randomtraffic": {"cameraGroups": {"everett1":{"blindspots": [((0.0,0.0),(1.0,0.4))]},"everett2":{"blindspots": [((0.0,0.0),(0.2,0.4))]}},
                          "objects_of_interest": ["traffic light", "car", "person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-                        #  "url": "https://coe.everettwa.gov/Broadway/Images/Pacific_Oakes/Pacific_Oakes.jpg",
                          "url": "https://coe.everettwa.gov/Broadway/Images/Broadway_Hewitt/Broadway_Hewitt.jpg",
                          "user": "",
                          "password": "",
                          "maxSnapshotsToKeep": 150,
                         },
-            # "backyard": {"cameraGroups": {"driveway":{"blindspots": []}},
-            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.11/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             },
-            # "driveway": {"cameraGroups": {"driveway":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
-            #             #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "http://192.168.254.2/ISAPI/Streaming/Channels/101/picture",
-            #              "user": config('CAM_USER'),
-            #              "password": config('CAM_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             },
-            # "backyard_rtsp": {"cameraGroups": {"rtsp":{"blindspots": []}},
-            #              "objects_of_interest": ["person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "rtsp://8.0.0.41:554/Streaming/Channels/302",
-            #              "user": config('RTSP_USER'),
-            #              "password": config('RTSP_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             },
-            # "driveway_rtsp": {"cameraGroups": {"rtsp":{"blindspots": [((0.0,0.2),(1.0,0.2))]}},
-            #             #  "objects_of_interest": ["fire hydrant","bench","car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "objects_of_interest": ["car","motorcycle","bus","train","truck","person","bicycle","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe"],
-            #              "url": "rtsp://8.0.0.41:554/Streaming/Channels/102",
-            #              "user": config('RTSP_USER'),
-            #              "password": config('RTSP_PASSWORD'),
-            #              "maxSnapshotsToKeep": 150,
-            #             }
         },
         # "minConfidence": 0.65,
         "minConfidence": 0.15,
@@ -133,6 +95,15 @@ class yolo_harness:
     }
 
     def __init__(self):
+        if os.path.exists('yolo_config.json'):
+            with open('yolo_config.json', 'r') as openfile: 
+                # Reading from json file
+                self.configDict = json.load(openfile)
+        else:
+            #Default initial configuration file if missing
+            with open("yolo_config.json", "w") as outfile:
+                outfile.write(json.dumps(self.configDict, indent=1))
+
         # Initialize camera_sequence if not already configured
         if "camera_sequence" not in self.configDict:
             camera_sequence = []

@@ -6,3 +6,4 @@ snapshots
 **.log
 *.json
 yolov5
+yolo_config.json
