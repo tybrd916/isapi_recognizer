@@ -29,6 +29,10 @@ import json
 import re
 import queue, threading
 # from yolov5.utils.plots import Annotator, colors
+import smtplib
+from email.message import EmailMessage
+from email.utils import make_msgid
+import urllib.request
 
 def timer_func(func): 
     # This function shows the execution time of  
@@ -81,8 +85,8 @@ class yolo_harness:
         "lookbackDepth": 5,
         "maximumSnapshots": 200,
         "maximumSnapshots": 4,
-        "saveDirectoryPath": "/tmp/yolo_cams/"
-        # "camera_sequence": ["driveway","backyard"]
+        "saveDirectoryPath": "/tmp/yolo_cams/",
+        "camera_sequence": ["randomtraffic"]
     }
     lastFrameDict = {
         #Store information about the objects in most recent frame (and lookback period too) for each camera name "key": (and persist/reload from disk for when program restarts)
@@ -208,7 +212,17 @@ class yolo_harness:
         # txt.save(f"{dirName}/{fileName} overlay.png","PNG", compress_level=1)
         self.clearOldestSnapshots(dirName)
         combined = Image.alpha_composite(image, txt)   
-        combined.save(f"{dirName}/{fileName}.png","PNG", compress_level=1)
+        filePath=f"{dirName}/{fileName}.png"
+        combined.save(filePath,"PNG", compress_level=1)
+        self.emailImage(filePath, currentCameraName, interestsFlagged, interestsFlagged)
+
+        # tell Homeseer to announce motion
+        if('notifyUrl' in self.configDict["cameras"][currentCameraName]):
+            try:
+                with urllib.request.urlopen(self.configDict["cameras"][currentCameraName]['notifyUrl']) as response:
+                    html = response.read()
+            except:
+                print(f'Error notifying {self.configDict["cameras"][currentCameraName]["notifyUrl"]}')
 
     def clearOldestSnapshots(self,dirname="snapshots"):
         if not os.path.exists(dirname):
@@ -323,5 +337,41 @@ class yolo_harness:
             return
         pil_image = Image.fromarray(color_converted).convert("RGBA")
         return pil_image
+
+    # Configure Gmail to allow sending from this app:
+    # https://towardsdatascience.com/automate-sending-emails-with-gmail-in-python-449cc0c3c317
+    def emailImage(self, filePath, currentCameraName, interestsFlagged, bodyStr):
+        if("emailTo" not in self.configDict or len(self.configDict['emailTo']) < 5):
+            return; #Do not send e-mail if no EMAIL_TO address is configured
+        # attachment = 'latest_thumb.jpg'
+
+        msg = EmailMessage()
+        msg["To"] = self.configDict['emailTo'].split(",")
+        msg["From"] = self.configDict['emailFrom']
+        msg["Subject"] = f"{currentCameraName} Yolo Snapshot - {interestsFlagged}"
+
+        attachment_cid = make_msgid()
+
+        msg.set_content('<b>%s</b><br/><img src="cid:%s"/><br/>' % (bodyStr, attachment_cid), 'html')
+
+        # msg.add_related(imagebytes, 'image', 'jpeg', cid=attachment_cid)
+        with open(filePath, 'rb') as fp:
+            msg.add_related(
+                fp.read(), 'image', 'png', cid=attachment_cid)
+       
+        # creates SMTP session
+        s = smtplib.SMTP('smtp.gmail.com', 587)
+       
+        # start TLS for security
+        s.starttls()
+       
+        # Authentication
+        s.login(self.configDict['emailFrom'], self.configDict['emailPassword'])
+       
+        # Converts the Multipart msg into a string
+        text = msg.as_string()
+       
+        # sending the mail
+        s.sendmail(self.configDict['emailFrom'], self.configDict['emailTo'].split(","), text)
 
 yh = yolo_harness()
