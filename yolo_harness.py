@@ -11,6 +11,7 @@
 #    Ignore if the same count of objects has been in the past X many frames (camera specific lookback memory)
 #  Email alerts for specific classes of objects
 
+GPU_MEMORY_LIMIT=2000
 import requests
 from requests.auth import HTTPDigestAuth
 import tempfile
@@ -33,6 +34,20 @@ import smtplib
 from email.message import EmailMessage
 from email.utils import make_msgid
 import urllib.request
+
+import subprocess as sp
+
+def get_gpu_memory():
+    try:
+        command = "nvidia-smi --query-gpu=memory.free --format=csv"
+        memory_free_info = sp.check_output(command.split()).decode('ascii').split('\n')[:-1][1:]
+        memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
+        return memory_free_values
+    except:
+        return [0]
+
+torch.cuda.is_available = lambda : get_gpu_memory()[0] > GPU_MEMORY_LIMIT
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def timer_func(func): 
     # This function shows the execution time of  
@@ -138,6 +153,14 @@ class yolo_harness:
                     self.filterNotifications(cameraGroup, currentCameraName, image, objectsDetected)
 
             time.sleep(1)
+            if(get_gpu_memory()[0] < GPU_MEMORY_LIMIT and f"{device}" == "cuda"):
+                print(get_gpu_memory())
+                print(device)
+                exit(6)
+            if(get_gpu_memory()[0] > GPU_MEMORY_LIMIT and f"{device}" == "cpu"):
+                print(get_gpu_memory())
+                print(device)
+                exit(7)
 
     def filterNotifications(self, cameraGroup, currentCameraName, image, objectsDetected):
 
@@ -293,24 +316,28 @@ class yolo_harness:
 
     @timer_func
     def download_image(self, cameraName, url, username, password):
-        if re.match("^rtsp://", url):
-            return self.download_rtsp_image(cameraName, url, username, password)
-        # buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
-        i = None
-        r = None
-        if username == "" or password == "":
-            r = requests.get(url, stream=True)    
-        else:
-            r = self.requests_get(url, auth=HTTPDigestAuth(username, password), stream=True)
-        if r.status_code == 200:
-            downloaded = 0
-            i = Image.open(io.BytesIO(r.raw.read())).convert("RGBA")
-            # DEBUG by saving unlabeled image to disk
-            # i.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png", compress_level=1)
-        else:
-            print(r)
-        # buffer.close()
-        return i
+        try:
+            if re.match("^rtsp://", url):
+                return self.download_rtsp_image(cameraName, url, username, password)
+            # buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
+            i = None
+            r = None
+            if username == "" or password == "":
+                r = requests.get(url, stream=True)    
+            else:
+                r = self.requests_get(url, auth=HTTPDigestAuth(username, password), stream=True)
+            if r.status_code == 200:
+                downloaded = 0
+                i = Image.open(io.BytesIO(r.raw.read())).convert("RGBA")
+                # DEBUG by saving unlabeled image to disk
+                # i.save(f"{self.configDict['saveDirectoryPath']}/{cameraName}.png", compress_level=1)
+            else:
+                print(r)
+            # buffer.close()
+            return i
+        except Exception as error:
+            print(f"{cameraName} download_image failed", error)
+            return None
     
     @timer_func
     def requests_get(self, url, auth, stream):
