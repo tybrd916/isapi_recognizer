@@ -38,6 +38,7 @@ import urllib.request
 import subprocess as sp
 
 def get_gpu_memory():
+    # return [0] #Force GPU off until proper version of torch recompiled
     try:
         command = "nvidia-smi --query-gpu=memory.free --format=csv"
         memory_free_info = sp.check_output(command.split()).decode('ascii').split('\n')[:-1][1:]
@@ -99,7 +100,6 @@ class yolo_harness:
         "objectBoundaryFuzzyMatch": 0.05,
         "lookbackDepth": 5,
         "maximumSnapshots": 200,
-        "maximumSnapshots": 4,
         "saveDirectoryPath": "/tmp/yolo_cams/",
         "camera_sequence": ["randomtraffic"],
         "notifyUrl": "http://192.168.40.250:88/JSON?request=runevent&group=Driveway&name=Announce%20Driveway%20Motion"
@@ -146,13 +146,14 @@ class yolo_harness:
                 currentCamera=0
             currentCameraName = self.configDict["camera_sequence"][currentCamera]
             cameraConfig = self.configDict["cameras"][currentCameraName]
+            # print(f"{currentCameraName} {datetime.datetime.now()}")
             objectsDetected, image = self.detectImageObjects(currentCameraName, cameraConfig)
-            if objectsDetected != None:
-                for cameraGroup in cameraConfig["cameraGroups"]:
-                    # print(cameraGroup)
-                    self.filterNotifications(cameraGroup, currentCameraName, image, objectsDetected)
+            # if objectsDetected != None:
+            for cameraGroup in cameraConfig["cameraGroups"]:
+                # print(cameraGroup)
+                self.filterNotifications(cameraGroup, currentCameraName, image, objectsDetected)
 
-            time.sleep(1)
+            # time.sleep(0.25)
             if(get_gpu_memory()[0] < GPU_MEMORY_LIMIT and f"{device}" == "cuda"):
                 print(get_gpu_memory())
                 print(device)
@@ -163,6 +164,11 @@ class yolo_harness:
                 exit(7)
 
     def filterNotifications(self, cameraGroup, currentCameraName, image, objectsDetected):
+        lookbackDepth = 30
+        if "lookbackDepth" in self.configDict:
+            lookbackDepth=self.configDict["lookbackDepth"]
+        if "lookbackDepth" in self.configDict["cameras"][currentCameraName]:
+            lookbackDepth=self.configDict["cameras"][currentCameraName]["lookbackDepth"]
 
         if cameraGroup not in self.interestsDict:
             self.interestsDict[cameraGroup] = {}
@@ -171,6 +177,14 @@ class yolo_harness:
             self.interestsDict[cameraGroup][currentCameraName] = {}
 
         interestsFlagged = []
+        # Update lookbackQueue when no objects are detected
+        for key in self.interestsDict[cameraGroup][currentCameraName]:
+            if key not in objectsDetected:
+                if len(self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"]) >= lookbackDepth:
+                    self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"].pop(0)
+                self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"].append(0)
+
+        # Check for each object detected
         for key in objectsDetected:
             if key not in self.interestsDict[cameraGroup][currentCameraName]:
                 self.interestsDict[cameraGroup][currentCameraName][key] = {}
@@ -183,23 +197,20 @@ class yolo_harness:
                 interestsFlagged.append(f"{len(visibleObjectList)} {key}{'s' if len(visibleObjectList) > 1 else ''}")
             
             #Update Lookback count list
-            lookbackDepth = 30
-            if "lookbackDepth" in self.configDict:
-                lookbackDepth=self.configDict["lookbackDepth"]
-            if "lookbackDepth" in self.configDict["cameras"][currentCameraName]:
-                lookbackDepth=self.configDict["cameras"][currentCameraName]["lookbackDepth"]
             if len(self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"]) >= lookbackDepth:
                 self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"].pop(0)
             self.interestsDict[cameraGroup][currentCameraName][key]["lookbackQueue"].append(len(objectsDetected[key]))
 
-        # Save lastObjectsDetected to state TODO: Merge data at the object level!
-        self.lastFrameDict[currentCameraName]["lastObjectsDetected"]=objectsDetected
+        # Save lastObjectsDetected to state Merge data at the object level!
+        for key in objectsDetected:
+            self.lastFrameDict[currentCameraName]["lastObjectsDetected"][key]=objectsDetected[key]
+            # print(self.lastFrameDict[currentCameraName]["lastObjectsDetected"][key])
 
         if len(interestsFlagged) > 0:
-            print(f"{cameraGroup} - {currentCameraName} - {interestsFlagged}")
+            print(f"{cameraGroup} - {currentCameraName} - {interestsFlagged} - {datetime.datetime.now()}")
             self.saveAndNotify(cameraGroup, currentCameraName, image, objectsDetected, interestsFlagged)
             
-    @timer_func
+    # @timer_func
     def saveAndNotify(self, cameraGroup, currentCameraName, image, objectsDetected, interestsFlagged):
         txt = Image.new('RGBA', image.size, (255,255,255,0))
         drawtxt = ImageDraw.Draw(txt)
@@ -231,7 +242,8 @@ class yolo_harness:
 
         #Save image to filesystem
         dirName=f"{self.configDict['saveDirectoryPath']}/{cameraGroup}/"
-        fileName=f"{datetime.datetime.now()} {currentCameraName} {interestsFlagged}"
+        nowTimeStr=re.sub(r'[.:]',' ',f"{datetime.datetime.now()}")
+        fileName=f"{nowTimeStr} {currentCameraName} {interestsFlagged}"
         # image.save(f"{dirName}/{fileName} original.png","PNG", compress_level=1)
         # txt.save(f"{dirName}/{fileName} overlay.png","PNG", compress_level=1)
         self.clearOldestSnapshots(dirName)
@@ -268,7 +280,7 @@ class yolo_harness:
         # print(results)
         if currentCameraName not in self.lastFrameDict:
             self.lastFrameDict[currentCameraName] = {}
-            self.lastFrameDict[currentCameraName]["lastObjectsDetected"] = None
+            self.lastFrameDict[currentCameraName]["lastObjectsDetected"] = {}
         # Loop over yolo results
         objectsDetected = {}
         for i, (im, pred) in enumerate(zip(results.ims, results.pred)):
@@ -314,7 +326,7 @@ class yolo_harness:
                                 objectsDetected[key][i][cameraGroup]["dejavu"]=True
         return objectsDetected, image
 
-    @timer_func
+    # @timer_func
     def download_image(self, cameraName, url, username, password):
         try:
             if re.match("^rtsp://", url):
@@ -339,7 +351,7 @@ class yolo_harness:
             print(f"{cameraName} download_image failed", error)
             return None
     
-    @timer_func
+    # @timer_func
     def requests_get(self, url, auth, stream):
         return requests.get(url, auth=auth, stream=stream)
 
@@ -376,7 +388,7 @@ class yolo_harness:
         msg = EmailMessage()
         msg["To"] = self.configDict['emailTo'].split(",")
         msg["From"] = self.configDict['emailFrom']
-        msg["Subject"] = f"{currentCameraName} Yolo Snapshot - {interestsFlagged}"
+        msg["Subject"] = f"Yolo Snapshot - {currentCameraName} - {interestsFlagged}"
 
         attachment_cid = make_msgid()
 
