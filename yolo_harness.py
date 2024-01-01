@@ -11,7 +11,7 @@
 #    Ignore if the same count of objects has been in the past X many frames (camera specific lookback memory)
 #  Email alerts for specific classes of objects
 
-GPU_MEMORY_LIMIT=2000
+GPU_MEMORY_LIMIT=1500
 import requests
 from requests.auth import HTTPDigestAuth
 import tempfile
@@ -131,7 +131,7 @@ class yolo_harness:
                 camera_sequence.append(key)
             self.configDict["camera_sequence"] = camera_sequence
         # initialize yolo model
-        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5x')  # or yolov5m, yolov5l, yolov5x, custom
+        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')  # or yolov5m, yolov5l, yolov5x, custom
 
         self.model.conf = float(self.configDict["minConfidence"])
         self.cameraLoop()
@@ -248,8 +248,10 @@ class yolo_harness:
         # txt.save(f"{dirName}/{fileName} overlay.png","PNG", compress_level=1)
         self.clearOldestSnapshots(dirName)
         combined = Image.alpha_composite(image, txt)   
-        filePath=f"{dirName}/{fileName}.png"
-        combined.save(filePath,"PNG", compress_level=1)
+        filePath=f"{dirName}/{fileName}.jpg"
+        # combined.save(filePath,"JPEG", optimize=True)
+        combined_jpg = combined.convert("RGB")
+        combined_jpg.save(filePath,"JPEG", optimize=True)
         self.emailImage(filePath, currentCameraName, interestsFlagged, interestsFlagged)
 
         # tell Homeseer to announce motion
